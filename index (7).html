@@ -1,0 +1,2333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TutorLink — Pakistan's Tuition Platform</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --ink: #1a1209;
+    --paper: #fdf8f0;
+    --cream: #f5ede0;
+    --gold: #c9922a;
+    --gold-light: #e8c176;
+    --gold-pale: #fdf3dc;
+    --teal: #1e5f5b;
+    --teal-light: #2d8c85;
+    --teal-pale: #eef7f6;
+    --muted: #7a6a55;
+    --border: #e0d4c0;
+    --error: #b83232;
+    --radius: 14px;
+    --shadow: 0 4px 32px rgba(26,18,9,0.12);
+  }
+
+  html, body { width: 100%; height: 100%; margin: 0; padding: 0; }
+  body { font-family: 'DM Sans', sans-serif; background: var(--paper); color: var(--ink); overflow: hidden; height: 100%; }
+
+  /* ── SCREENS ── */
+  .screen { display: none; width: 100%; height: 100%; position: absolute; inset: 0; overflow: hidden; z-index: 1; flex-direction: column; }
+  .screen.active { display: flex !important; z-index: 10; }
+
+  /* ── AUTH SCREEN ── */
+  #authScreen.active { display: flex !important; }
+  .auth-app { display: flex; height: 100%; }
+  .auth-sidebar {
+    width: 420px; background: var(--teal); padding: 48px 44px;
+    display: flex; flex-direction: column; justify-content: space-between;
+    position: relative; overflow: hidden;
+  }
+  .auth-sidebar::before {
+    content: ''; position: absolute; inset: 0;
+    background: radial-gradient(ellipse 340px 280px at 110% 20%, rgba(201,146,42,0.22) 0%, transparent 70%);
+    pointer-events: none;
+  }
+
+  .logo { font-family: 'DM Serif Display', serif; font-size: 32px; color: var(--gold-light); margin-bottom: 8px; position: relative; z-index: 1; }
+  .logo span { color: #fff; }
+  .tagline { font-size: 13px; color: rgba(255,255,255,0.55); text-transform: uppercase; letter-spacing: 0.08em; font-weight: 500; position: relative; z-index: 1; }
+
+  .auth-features { position: relative; z-index: 1; margin-bottom: auto; }
+  .feature { display: flex; gap: 16px; margin-bottom: 28px; align-items: flex-start; }
+  .feature-icon {
+    width: 40px; height: 40px; border-radius: 10px; background: rgba(255,255,255,0.10);
+    border: 1px solid rgba(255,255,255,0.15); display: flex; align-items: center;
+    justify-content: center; flex-shrink: 0; font-size: 18px;
+  }
+  .feature h4 { color: #fff; font-size: 14px; font-weight: 600; margin-bottom: 3px; }
+  .feature p { color: rgba(255,255,255,0.5); font-size: 12px; line-height: 1.5; }
+
+  .auth-main { flex: 1; display: flex; align-items: flex-start; justify-content: center; padding: 48px; overflow-y: auto; }
+
+  .card { width: 100%; max-width: 440px; }
+  .tab-bar { display: flex; background: var(--cream); border-radius: 12px; padding: 4px; margin-bottom: 32px; border: 1px solid var(--border); }
+  .tab { flex: 1; padding: 10px; border: none; background: transparent; border-radius: 9px; font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 500; color: var(--muted); cursor: pointer; transition: all 0.2s; }
+  .tab.active { background: #fff; color: var(--teal); box-shadow: 0 1px 6px rgba(26,18,9,0.10); }
+
+  .form-section { display: none; }
+  .form-section.active { display: block; animation: fadeUp 0.3s ease both; }
+
+  @keyframes fadeUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+
+  .form-heading { font-family: 'DM Serif Display', serif; font-size: 28px; color: var(--ink); margin-bottom: 6px; letter-spacing: -0.3px; }
+  .form-sub { font-size: 14px; color: var(--muted); margin-bottom: 28px; line-height: 1.5; }
+
+  .role-picker { display: flex; gap: 10px; margin-bottom: 24px; }
+  .role-btn { flex: 1; padding: 14px 12px; border: 1.5px solid var(--border); border-radius: var(--radius); background: #fff; cursor: pointer; text-align: center; transition: all 0.2s; font-family: 'DM Sans', sans-serif; }
+  .role-btn:hover { border-color: var(--teal-light); }
+  .role-btn.selected { border-color: var(--teal); background: #eef7f6; }
+  .role-btn .re { font-size: 22px; display: block; margin-bottom: 4px; }
+  .role-btn .rl { font-size: 13px; font-weight: 600; color: var(--ink); display: block; }
+  .role-btn .rd { font-size: 11px; color: var(--muted); margin-top: 2px; display: block; }
+
+  .field { margin-bottom: 16px; }
+  .field label { display: block; font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 6px; }
+  .field input, .field select, .field textarea { width: 100%; padding: 12px 14px; border: 1.5px solid var(--border); border-radius: 10px; background: #fff; font-family: 'DM Sans', sans-serif; font-size: 14px; color: var(--ink); transition: border-color 0.2s, box-shadow 0.2s; outline: none; }
+  .field input:focus, .field select:focus, .field textarea:focus { border-color: var(--teal); box-shadow: 0 0 0 3px rgba(30,95,91,0.10); }
+  .field input.err { border-color: var(--error); }
+  .field textarea { resize: vertical; min-height: 80px; }
+
+  .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+  .field-error { font-size: 11px; color: var(--error); margin-top: 4px; display: none; }
+  .field-error.show { display: block; }
+
+  .field-wrap { position: relative; }
+  .eye-btn { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; color: var(--muted); font-size: 16px; padding: 4px; line-height: 1; }
+
+  .teacher-fields { display: none; }
+  .teacher-fields.show { display: block; }
+
+  .btn-primary {
+    width: 100%; padding: 14px; background: var(--teal); color: #fff;
+    border: none; border-radius: 12px; font-family: 'DM Sans', sans-serif;
+    font-size: 15px; font-weight: 600; cursor: pointer; transition: all 0.2s;
+    position: relative; overflow: hidden; margin-top: 4px;
+  }
+  .btn-primary:hover { background: var(--teal-light); transform: translateY(-1px); box-shadow: 0 4px 16px rgba(30,95,91,0.25); }
+  .btn-primary.loading { pointer-events: none; opacity: 0.8; }
+
+  .btn-primary .btn-text { display: inline; }
+  .btn-primary .spinner { display: none; width: 16px; height: 16px; border: 2px solid rgba(255,255,255,0.4); border-top-color: #fff; border-radius: 50%; animation: spin 0.7s linear infinite; }
+  .btn-primary.loading .btn-text { display: none; }
+  .btn-primary.loading .spinner { display: inline-block; }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .switch-link { text-align: center; margin-top: 16px; font-size: 13px; color: var(--muted); }
+  .switch-link button { background: none; border: none; color: var(--teal); font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 600; cursor: pointer; text-decoration: underline; }
+
+  /* ── DASHBOARD COMMON ── */
+  .topbar {
+    background: var(--teal); height: 60px; min-height: 60px; display: flex; align-items: center;
+    justify-content: space-between; padding: 0 24px; flex-shrink: 0; z-index: 100;
+  }
+
+  .topbar-left { display: flex; align-items: center; gap: 16px; }
+  .logo-sm { font-family: 'DM Serif Display', serif; font-size: 20px; color: var(--gold-light); cursor: pointer; }
+  .logo-sm span { color: #fff; }
+
+  .topbar-right { display: flex; align-items: center; gap: 10px; }
+  .avatar { width: 32px; height: 32px; border-radius: 50%; background: var(--gold); display: flex; align-items: center; justify-content: center; font-weight: 700; color: #fff; font-size: 13px; }
+
+  .uname { font-size: 13px; font-weight: 600; color: #fff; }
+  .urole { font-size: 11px; color: rgba(255,255,255,0.5); }
+
+  .btn-sm { background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.2); color: #fff; padding: 6px 12px; border-radius: 7px; font-family: 'DM Sans', sans-serif; font-size: 12px; font-weight: 500; cursor: pointer; transition: background 0.2s; }
+  .btn-sm:hover { background: rgba(255,255,255,0.22); }
+
+  /* ── STUDENT DASHBOARD ── */
+  #studentDash { flex-direction: column; }
+  .dash-body { flex: 1; overflow-y: auto; padding: 40px 32px 80px; max-width: 900px; margin: 0 auto; width: 100%; -webkit-overflow-scrolling: touch; }
+
+  .welcome-banner {
+    background: linear-gradient(135deg, var(--teal) 0%, #164e4a 100%); border-radius: 20px;
+    padding: 32px 36px; margin-bottom: 32px; position: relative; overflow: hidden; color: #fff;
+  }
+
+  .welcome-banner::after { content: ''; position: absolute; right: -30px; top: -40px; width: 220px; height: 220px; border-radius: 50%; background: rgba(201,146,42,0.18); }
+
+  .welcome-banner h2 { font-family: 'DM Serif Display', serif; font-size: 26px; margin-bottom: 6px; position: relative; z-index: 1; }
+  .welcome-banner p { font-size: 14px; color: rgba(255,255,255,0.65); position: relative; z-index: 1; }
+
+  .dash-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 16px; }
+  .dash-card { background: #fff; border-radius: var(--radius); border: 1px solid var(--border); padding: 24px; cursor: pointer; transition: box-shadow 0.2s, transform 0.2s; }
+  .dash-card:hover { box-shadow: 0 6px 24px rgba(26,18,9,0.10); transform: translateY(-2px); }
+
+  .dash-card-icon { font-size: 26px; margin-bottom: 12px; width: 48px; height: 48px; background: var(--gold-pale); border-radius: 12px; display: flex; align-items: center; justify-content: center; }
+  .dash-card h3 { font-size: 15px; font-weight: 600; margin-bottom: 4px; color: var(--ink); }
+  .dash-card p { font-size: 12px; color: var(--muted); line-height: 1.5; }
+
+  /* ── POST REQUIREMENT ── */
+  #postReqPage { flex-direction: column; }
+  .page { max-width: 980px; margin: 0 auto; padding: 36px 24px 80px; flex: 1; overflow-y: auto; width: 100%; -webkit-overflow-scrolling: touch; }
+
+  .page-header { margin-bottom: 32px; }
+  .breadcrumb { font-size: 12px; color: var(--muted); margin-bottom: 10px; display: flex; align-items: center; gap: 6px; }
+  .breadcrumb a { color: var(--teal); text-decoration: none; cursor: pointer; }
+  .breadcrumb a:hover { text-decoration: underline; }
+
+  .page-header h1 { font-family: 'DM Serif Display', serif; font-size: 32px; color: var(--ink); margin-bottom: 6px; letter-spacing: -0.4px; }
+  .page-header p { font-size: 15px; color: var(--muted); }
+
+  .steps { display: flex; align-items: center; gap: 0; margin-bottom: 36px; background: #fff; border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 24px; }
+  .step { display: flex; align-items: center; gap: 10px; flex: 1; }
+  .step-num { width: 28px; height: 28px; border-radius: 50%; background: var(--cream); border: 1.5px solid var(--border); display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; color: var(--muted); flex-shrink: 0; transition: all 0.3s; }
+  .step.active .step-num { background: var(--teal); border-color: var(--teal); color: #fff; }
+  .step.done .step-num { background: var(--teal-pale); border-color: var(--teal); color: var(--teal); }
+  .step-label { font-size: 13px; font-weight: 500; color: var(--muted); }
+  .step.active .step-label { color: var(--ink); font-weight: 600; }
+  .step-line { flex: 1; height: 1px; background: var(--border); margin: 0 8px; max-width: 48px; }
+
+  .grid { display: grid; grid-template-columns: 1fr 340px; gap: 24px; align-items: start; }
+  .card { background: #fff; border: 1px solid var(--border); border-radius: var(--radius); padding: 32px; margin-bottom: 20px; }
+
+  .card-title { font-size: 17px; font-weight: 600; color: var(--ink); margin-bottom: 4px; }
+  .card-sub { font-size: 13px; color: var(--muted); margin-bottom: 24px; }
+
+  .chip-grid { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 6px; }
+  .chip { padding: 7px 14px; border-radius: 30px; border: 1.5px solid var(--border); background: #fff; font-size: 13px; font-weight: 500; color: var(--muted); cursor: pointer; transition: all 0.18s; user-select: none; }
+  .chip:hover { border-color: var(--teal-light); color: var(--teal); }
+  .chip.selected { background: var(--teal-pale); border-color: var(--teal); color: var(--teal); font-weight: 600; }
+
+  .slot-grid { display: flex; flex-wrap: wrap; gap: 8px; }
+  .slot { padding: 7px 13px; border-radius: 8px; border: 1.5px solid var(--border); background: #fff; font-size: 12px; font-weight: 500; color: var(--muted); cursor: pointer; transition: all 0.18s; user-select: none; }
+  .slot:hover { border-color: var(--teal-light); }
+  .slot.selected { background: var(--teal-pale); border-color: var(--teal); color: var(--teal); font-weight: 600; }
+
+  .budget-display { font-family: 'DM Serif Display', serif; font-size: 28px; color: var(--teal); margin-bottom: 10px; letter-spacing: -0.5px; }
+  .budget-display span { font-size: 15px; color: var(--muted); font-family: 'DM Sans', sans-serif; }
+  input[type=range] { width: 100%; -webkit-appearance: none; height: 4px; background: var(--border); border-radius: 4px; outline: none; accent-color: var(--teal); }
+  input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 20px; height: 20px; border-radius: 50%; background: var(--teal); border: 3px solid #fff; box-shadow: 0 1px 6px rgba(30,95,91,0.3); cursor: pointer; }
+
+  .gender-row { display: flex; gap: 10px; }
+  .gender-opt { flex: 1; padding: 11px 8px; border: 1.5px solid var(--border); border-radius: 10px; text-align: center; cursor: pointer; font-size: 13px; font-weight: 500; color: var(--muted); transition: all 0.18s; user-select: none; }
+  .gender-opt:hover { border-color: var(--teal-light); }
+  .gender-opt.selected { background: var(--teal-pale); border-color: var(--teal); color: var(--teal); font-weight: 600; }
+  .gender-opt .g-icon { font-size: 18px; display: block; margin-bottom: 3px; }
+
+  .urgency-row { display: flex; gap: 8px; }
+  .urgency-btn { flex: 1; padding: 10px 6px; border: 1.5px solid var(--border); border-radius: 10px; text-align: center; cursor: pointer; font-size: 12px; font-weight: 500; color: var(--muted); transition: all 0.18s; user-select: none; }
+  .urgency-btn .u-icon { font-size: 16px; display: block; margin-bottom: 3px; }
+  .urgency-btn.low.selected { background: #eef7f6; border-color: var(--teal); color: var(--teal); }
+  .urgency-btn.medium.selected { background: #fdf3dc; border-color: var(--gold); color: #8a6010; }
+  .urgency-btn.high.selected { background: #fdf0f0; border-color: var(--error); color: var(--error); }
+
+  .sidebar-card { display: flex; flex-direction: column; gap: 16px; }
+  .info-card { background: #fff; border: 1px solid var(--border); border-radius: var(--radius); padding: 22px; }
+  .info-card h3 { font-size: 14px; font-weight: 600; margin-bottom: 12px; color: var(--ink); display: flex; align-items: center; gap: 8px; }
+
+  .preview-card { background: linear-gradient(135deg, var(--teal) 0%, #144e4a 100%); border-radius: var(--radius); padding: 22px; color: #fff; position: sticky; top: 0; }
+  .preview-card h3 { font-size: 13px; color: rgba(255,255,255,0.6); margin-bottom: 16px; text-transform: uppercase; letter-spacing: 0.07em; font-weight: 600; }
+
+  .preview-item { display: flex; gap: 10px; margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px solid rgba(255,255,255,0.1); }
+  .preview-item:last-child { margin-bottom: 0; padding-bottom: 0; border-bottom: none; }
+  .preview-item .pi-icon { font-size: 14px; flex-shrink: 0; opacity: 0.7; }
+  .preview-item .pi-label { font-size: 10px; color: rgba(255,255,255,0.5); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 1px; }
+  .preview-item .pi-value { font-size: 13px; color: #fff; font-weight: 500; }
+
+  .tip { display: flex; gap: 10px; margin-bottom: 10px; }
+  .tip-icon { font-size: 15px; flex-shrink: 0; margin-top: 1px; }
+  .tip-text { font-size: 12px; color: var(--muted); line-height: 1.5; }
+  .tip-text strong { color: var(--ink); font-weight: 600; }
+
+  #successState { display: none; text-align: center; padding: 48px 24px; animation: fadeUp 0.4s ease both; }
+  .success-icon { font-size: 56px; margin-bottom: 16px; }
+  #successState h2 { font-family: 'DM Serif Display', serif; font-size: 26px; color: var(--ink); margin-bottom: 8px; }
+  #successState p { font-size: 14px; color: var(--muted); line-height: 1.6; max-width: 360px; margin: 0 auto 24px; }
+
+  .btn-secondary { padding: 12px 28px; border: 1.5px solid var(--teal); border-radius: 10px; color: var(--teal); background: transparent; font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.2s; margin: 0 6px; }
+  .btn-secondary:hover { background: var(--teal-pale); }
+
+  /* ── TEACHER MAP PAGE ── */
+  #teacherMapPage { flex-direction: column; height: 100%; }
+
+  .filterbar { background: #fff; border-bottom: 1px solid var(--border); padding: 10px 16px; display: flex; align-items: center; gap: 10px; flex-shrink: 0; z-index: 999; flex-wrap: wrap; min-height: 52px; }
+  .filter-label { font-size: 12px; font-weight: 600; color: var(--muted); white-space: nowrap; }
+  .filter-select { padding: 7px 10px; border: 1.5px solid var(--border); border-radius: 8px; background: #fff; font-family: 'DM Sans', sans-serif; font-size: 12px; color: var(--ink); outline: none; cursor: pointer; transition: border-color 0.2s; }
+  .filter-select:focus { border-color: var(--teal); }
+  .filter-search { flex: 1; min-width: 160px; padding: 7px 12px; border: 1.5px solid var(--border); border-radius: 8px; font-family: 'DM Sans', sans-serif; font-size: 12px; color: var(--ink); outline: none; transition: border-color 0.2s; }
+  .filter-search:focus { border-color: var(--teal); }
+  .req-count { margin-left: auto; font-size: 12px; font-weight: 600; color: var(--teal); white-space: nowrap; background: var(--teal-pale); padding: 5px 12px; border-radius: 20px; }
+
+  .map-container { flex: 1; position: relative; overflow: hidden; min-height: 0; display: flex; flex-direction: column; }
+  #map { width: 100%; flex: 1; min-height: 300px; }
+
+  .leaflet-popup-content-wrapper { border-radius: 12px !important; padding: 0 !important; box-shadow: var(--shadow) !important; border: 1px solid var(--border) !important; font-family: 'DM Sans', sans-serif !important; overflow: hidden; }
+  .leaflet-popup-content { margin: 0 !important; width: 260px !important; }
+  .leaflet-popup-tip-container { display: none; }
+  .leaflet-container { font-family: 'DM Sans', sans-serif !important; }
+
+  .popup-card { padding: 14px; }
+  .popup-subject { font-size: 14px; font-weight: 700; color: var(--ink); margin-bottom: 2px; }
+  .popup-grade { font-size: 11px; color: var(--muted); margin-bottom: 8px; }
+  .popup-row { display: flex; gap: 6px; margin-bottom: 8px; flex-wrap: wrap; }
+  .popup-badge { font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 12px; }
+  .pb-teal { background: var(--teal-pale); color: var(--teal); }
+  .pb-gold { background: var(--gold-pale); color: #8a6010; }
+  .pb-red { background: #fdf0f0; color: var(--error); }
+  .popup-btn { width: 100%; padding: 9px; background: var(--teal); color: #fff; border: none; border-radius: 8px; font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 600; cursor: pointer; transition: background 0.2s; }
+  .popup-btn:hover { background: var(--teal-light); }
+
+  .panel { position: absolute; right: 0; top: 0; bottom: 0; width: 380px; background: #fff; border-left: 1px solid var(--border); display: flex; flex-direction: column; transform: translateX(100%); transition: transform 0.32s cubic-bezier(.22,1,.36,1); z-index: 500; box-shadow: -4px 0 24px rgba(26,18,9,0.10); }
+  .panel.open { transform: translateX(0); }
+
+  .panel-header { padding: 18px 20px 14px; border-bottom: 1px solid var(--border); display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; flex-shrink: 0; }
+  .panel-close { width: 28px; height: 28px; border-radius: 7px; border: 1px solid var(--border); background: var(--cream); cursor: pointer; font-size: 14px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: background 0.2s; }
+  .panel-close:hover { background: var(--border); }
+
+  .panel-subject { font-family: 'DM Serif Display', serif; font-size: 22px; color: var(--ink); margin-bottom: 3px; }
+  .panel-grade { font-size: 13px; color: var(--muted); }
+
+  .panel-body { flex: 1; overflow-y: auto; padding: 18px 20px; -webkit-overflow-scrolling: touch; }
+
+  .detail-section { margin-bottom: 20px; }
+  .detail-section h4 { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 10px; }
+
+  .detail-row { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 9px; }
+  .detail-icon { font-size: 15px; flex-shrink: 0; width: 20px; text-align: center; margin-top: 1px; }
+  .detail-content { flex: 1; }
+  .detail-label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600; }
+  .detail-value { font-size: 13px; color: var(--ink); font-weight: 500; margin-top: 1px; }
+
+  .desc-box { background: var(--cream); border-radius: 10px; padding: 12px 14px; font-size: 13px; color: var(--ink); line-height: 1.6; border: 1px solid var(--border); }
+
+  .slot-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+  .slot-tag { padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; background: var(--teal-pale); color: var(--teal); }
+
+  .urgency-pill { display: inline-flex; align-items: center; gap: 5px; padding: 5px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; }
+  .urg-low { background: var(--teal-pale); color: var(--teal); }
+  .urg-medium { background: var(--gold-pale); color: #8a6010; }
+  .urg-high { background: #fdf0f0; color: var(--error); }
+
+  .panel-footer { padding: 16px 20px; border-top: 1px solid var(--border); flex-shrink: 0; }
+
+  .empty-panel { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 32px; text-align: center; color: var(--muted); }
+  .empty-panel .e-icon { font-size: 40px; margin-bottom: 12px; opacity: 0.5; }
+  .empty-panel h3 { font-size: 15px; font-weight: 600; color: var(--ink); margin-bottom: 6px; }
+  .empty-panel p { font-size: 13px; line-height: 1.5; }
+
+  .map-legend { position: absolute; bottom: 28px; left: 16px; z-index: 400; background: #fff; border: 1px solid var(--border); border-radius: 10px; padding: 10px 14px; box-shadow: var(--shadow); }
+  .legend-title { font-size: 10px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 8px; }
+  .legend-item { display: flex; align-items: center; gap: 8px; margin-bottom: 5px; font-size: 11px; color: var(--ink); }
+  .legend-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+
+  /* ── ADMIN PANEL ── */
+  #adminPage { flex-direction: column; background: #f0f4f8; }
+
+  .admin-topbar {
+    background: #1a1209; height: 60px; display: flex; align-items: center;
+    justify-content: space-between; padding: 0 28px; flex-shrink: 0;
+  }
+  .admin-logo { font-family: 'DM Serif Display', serif; font-size: 20px; color: var(--gold-light); }
+  .admin-logo span { color: #fff; }
+  .admin-badge { background: var(--error); color: #fff; font-size: 10px; font-weight: 700; padding: 3px 9px; border-radius: 20px; letter-spacing: 0.07em; margin-left: 8px; }
+
+  .admin-layout { display: flex; flex: 1; overflow: hidden; }
+
+  /* Sidebar nav */
+  .admin-nav {
+    width: 220px; background: #fff; border-right: 1px solid var(--border);
+    display: flex; flex-direction: column; padding: 20px 0; flex-shrink: 0;
+  }
+  .admin-nav-label { font-size: 10px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.09em; padding: 0 20px; margin-bottom: 8px; margin-top: 16px; }
+  .admin-nav-label:first-child { margin-top: 0; }
+  .nav-item {
+    display: flex; align-items: center; gap: 10px; padding: 10px 20px;
+    font-size: 13px; font-weight: 500; color: var(--muted); cursor: pointer;
+    transition: all 0.18s; border-left: 3px solid transparent;
+  }
+  .nav-item:hover { background: var(--cream); color: var(--ink); }
+  .nav-item.active { background: var(--teal-pale); color: var(--teal); border-left-color: var(--teal); font-weight: 600; }
+  .nav-item .nav-icon { font-size: 16px; flex-shrink: 0; }
+  .nav-badge { margin-left: auto; background: var(--error); color: #fff; font-size: 10px; font-weight: 700; padding: 1px 6px; border-radius: 10px; }
+
+  /* Main content */
+  .admin-content { flex: 1; overflow-y: auto; padding: 28px 28px 80px; -webkit-overflow-scrolling: touch; }
+
+  /* Stat cards */
+  .stat-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 16px; margin-bottom: 28px; }
+  .stat-card { background: #fff; border-radius: var(--radius); border: 1px solid var(--border); padding: 20px; }
+  .stat-card .s-label { font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 8px; }
+  .stat-card .s-value { font-family: 'DM Serif Display', serif; font-size: 32px; color: var(--ink); letter-spacing: -0.5px; margin-bottom: 4px; }
+  .stat-card .s-sub { font-size: 11px; color: var(--muted); }
+  .stat-card.highlight { background: var(--teal); border-color: var(--teal); }
+  .stat-card.highlight .s-label { color: rgba(255,255,255,0.6); }
+  .stat-card.highlight .s-value { color: #fff; }
+  .stat-card.highlight .s-sub { color: rgba(255,255,255,0.5); }
+
+  /* Tabs inside admin */
+  .admin-tab-bar { display: flex; gap: 4px; margin-bottom: 20px; background: #fff; border: 1px solid var(--border); border-radius: 10px; padding: 4px; }
+  .admin-tab { padding: 8px 16px; border: none; background: transparent; border-radius: 7px; font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 500; color: var(--muted); cursor: pointer; transition: all 0.18s; }
+  .admin-tab.active { background: var(--teal); color: #fff; font-weight: 600; }
+
+  /* Table */
+  .admin-table-wrap { background: #fff; border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+  .table-header { padding: 16px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+  .table-header h3 { font-size: 15px; font-weight: 600; color: var(--ink); }
+  .table-search { padding: 7px 12px; border: 1.5px solid var(--border); border-radius: 8px; font-family: 'DM Sans', sans-serif; font-size: 12px; color: var(--ink); outline: none; width: 200px; transition: border-color 0.2s; }
+  .table-search:focus { border-color: var(--teal); }
+
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { background: var(--cream); padding: 10px 16px; text-align: left; font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; border-bottom: 1px solid var(--border); }
+  td { padding: 12px 16px; border-bottom: 1px solid var(--border); color: var(--ink); vertical-align: middle; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: var(--paper); }
+
+  .badge { display: inline-block; padding: 3px 9px; border-radius: 12px; font-size: 11px; font-weight: 600; }
+  .badge-student  { background: var(--teal-pale); color: var(--teal); }
+  .badge-teacher  { background: var(--gold-pale); color: #8a6010; }
+  .badge-open     { background: #e8f5e9; color: #2e7d32; }
+  .badge-contacted{ background: var(--gold-pale); color: #8a6010; }
+  .badge-urgent   { background: #fdf0f0; color: var(--error); }
+  .badge-admin    { background: #1a1209; color: #fff; }
+
+  .action-btn {
+    padding: 5px 10px; border-radius: 6px; font-family: 'DM Sans', sans-serif;
+    font-size: 11px; font-weight: 600; cursor: pointer; border: none; transition: all 0.15s;
+  }
+  .action-btn.del { background: #fdf0f0; color: var(--error); }
+  .action-btn.del:hover { background: var(--error); color: #fff; }
+  .action-btn.view { background: var(--teal-pale); color: var(--teal); margin-right: 4px; }
+  .action-btn.view:hover { background: var(--teal); color: #fff; }
+  .action-btn.approve { background: #e8f5e9; color: #2e7d32; margin-right: 4px; }
+  .action-btn.approve:hover { background: #2e7d32; color: #fff; }
+
+  .empty-table { text-align: center; padding: 40px; color: var(--muted); font-size: 14px; }
+
+  /* Admin section panels */
+  .admin-section { display: none; }
+  .admin-section.active { display: block; animation: fadeUp 0.25s ease both; }
+
+  /* Activity log */
+  .log-item { display: flex; gap: 14px; padding: 12px 0; border-bottom: 1px solid var(--border); }
+  .log-item:last-child { border-bottom: none; }
+  .log-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; margin-top: 5px; }
+  .log-text { font-size: 13px; color: var(--ink); line-height: 1.5; flex: 1; }
+  .log-time { font-size: 11px; color: var(--muted); white-space: nowrap; }
+
+  /* ── MODALS ── */
+  .modal-overlay { position: fixed; inset: 0; background: rgba(26,18,9,0.45); z-index: 2000; display: none; align-items: center; justify-content: center; padding: 20px; }
+  .modal-overlay.open { display: flex; }
+
+  .modal { background: #fff; border-radius: 20px; width: 100%; max-width: 460px; box-shadow: 0 20px 60px rgba(26,18,9,0.2); animation: popUp 0.28s cubic-bezier(.22,1,.36,1) both; }
+  @keyframes popUp { from { opacity:0; transform:scale(0.92) translateY(12px); } to { opacity:1; transform:scale(1) translateY(0); } }
+
+  .modal-header { padding: 22px 24px 16px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+  .modal-header h3 { font-family: 'DM Serif Display', serif; font-size: 20px; color: var(--ink); }
+  .modal-close { background: none; border: none; font-size: 20px; cursor: pointer; color: var(--muted); line-height: 1; }
+
+  .modal-body { padding: 20px 24px; }
+  .modal-to { background: var(--cream); border-radius: 8px; padding: 10px 14px; font-size: 13px; color: var(--muted); margin-bottom: 14px; border: 1px solid var(--border); }
+  .modal-to strong { color: var(--ink); }
+
+  .msg-templates { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+  .msg-template { padding: 5px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; background: var(--teal-pale); color: var(--teal); cursor: pointer; border: 1px solid var(--teal); transition: background 0.15s; }
+  .msg-template:hover { background: var(--teal); color: #fff; }
+
+  .modal-textarea { width: 100%; min-height: 130px; padding: 12px 14px; border: 1.5px solid var(--border); border-radius: 10px; resize: vertical; font-family: 'DM Sans', sans-serif; font-size: 13px; color: var(--ink); line-height: 1.6; outline: none; transition: border-color 0.2s; }
+  .modal-textarea:focus { border-color: var(--teal); box-shadow: 0 0 0 3px rgba(30,95,91,0.10); }
+
+  .modal-footer { padding: 14px 24px 20px; display: flex; gap: 10px; }
+  .btn-cancel { flex: 1; padding: 11px; background: var(--cream); color: var(--muted); border: 1px solid var(--border); border-radius: 10px; font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 600; cursor: pointer; transition: background 0.2s; }
+  .btn-cancel:hover { background: var(--border); }
+  .btn-send { flex: 2; padding: 11px; background: var(--teal); color: #fff; border: none; border-radius: 10px; font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.2s; position: relative; }
+  .btn-send:hover { background: var(--teal-light); }
+  .btn-send.loading { opacity: 0.7; pointer-events: none; }
+
+  /* ── TOAST ── */
+  .toast { position: fixed; top: 76px; right: 20px; padding: 12px 18px; border-radius: 10px; font-size: 13px; font-weight: 500; box-shadow: var(--shadow); transform: translateX(120%); transition: transform 0.3s cubic-bezier(.22,1,.36,1); z-index: 3000; max-width: 280px; }
+  .toast.show { transform: translateX(0); }
+  .toast.success { background: #eef7f6; color: var(--teal); border: 1px solid #b2dbd8; }
+  .toast.error { background: #fdf0f0; color: var(--error); border: 1px solid #f0bcbc; }
+
+  @media (max-width: 768px) {
+    .auth-sidebar { display: none; }
+    .grid { grid-template-columns: 1fr; }
+    .panel { width: 100%; }
+    .row2 { grid-template-columns: 1fr; }
+  }
+
+  /* ── CUSTOM SCROLLBAR ── */
+  ::-webkit-scrollbar { width: 5px; height: 5px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 10px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--muted); }
+</style>
+</head>
+<body>
+
+<!-- ===================== AUTH SCREEN ===================== -->
+<div class="screen active" id="authScreen">
+  <div class="auth-app">
+    <aside class="auth-sidebar">
+      <div>
+        <div class="logo">Tutor<span>Link</span></div>
+        <div class="tagline">Pakistan's Home Tuition Platform</div>
+        <div class="auth-features" style="margin-top:48px">
+          <div class="feature">
+            <div class="feature-icon">📋</div>
+            <div>
+              <h4>Post your requirements</h4>
+              <p>Students share subject, area & schedule. Teachers find you.</p>
+            </div>
+          </div>
+          <div class="feature">
+            <div class="feature-icon">💬</div>
+            <div>
+              <h4>Teachers reach out</h4>
+              <p>Qualified tutors message you directly — no middleman.</p>
+            </div>
+          </div>
+          <div class="feature">
+            <div class="feature-icon">🗺️</div>
+            <div>
+              <h4>Find students on map</h4>
+              <p>Teachers see all nearby students on an interactive map.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div style="position:relative;z-index:1;font-size:12px;color:rgba(255,255,255,0.3);line-height:1.6">
+        CS Project — 3rd Semester<br>Tuition Management System v1.0
+      </div>
+    </aside>
+
+    <main class="auth-main">
+      <div class="card">
+        <div class="tab-bar">
+          <button class="tab active" onclick="switchTab('login')">Sign In</button>
+          <button class="tab" onclick="switchTab('register')">Create Account</button>
+        </div>
+
+        <!-- LOGIN -->
+        <div class="form-section active" id="loginSection">
+          <h1 class="form-heading">Welcome back</h1>
+          <p class="form-sub">Sign in to continue to your dashboard.</p>
+
+          <div class="field">
+            <label>Email address</label>
+            <input type="email" id="loginEmail" placeholder="you@example.com">
+            <div class="field-error" id="loginEmailErr">Please enter a valid email.</div>
+          </div>
+
+          <div class="field">
+            <label>Password</label>
+            <div class="field-wrap">
+              <input type="password" id="loginPass" placeholder="Enter your password">
+              <button class="eye-btn" onclick="togglePw('loginPass', this)">👁</button>
+            </div>
+            <div class="field-error" id="loginPassErr">Password is required.</div>
+          </div>
+
+          <button class="btn-primary" onclick="handleLogin()" id="loginBtn">
+            <span class="btn-text">Sign In</span>
+            <div class="spinner"></div>
+          </button>
+
+          <div class="switch-link">
+            Don't have an account?
+            <button onclick="switchTab('register')">Create one</button>
+          </div>
+        </div>
+
+        <!-- REGISTER -->
+        <div class="form-section" id="registerSection">
+          <h1 class="form-heading">Join TutorLink</h1>
+          <p class="form-sub">Choose your role to get started.</p>
+
+          <div class="role-picker">
+            <div class="role-btn selected" id="roleStudent" onclick="selectRole('student')">
+              <span class="re">🎓</span>
+              <span class="rl">Student</span>
+              <span class="rd">Need a tutor</span>
+            </div>
+            <div class="role-btn" id="roleTeacher" onclick="selectRole('teacher')">
+              <span class="re">📚</span>
+              <span class="rl">Teacher</span>
+              <span class="rd">Offer tuition</span>
+            </div>
+          </div>
+
+          <div class="row2">
+            <div class="field">
+              <label>First name</label>
+              <input type="text" id="regFirst" placeholder="Ali">
+              <div class="field-error" id="regFirstErr">Required.</div>
+            </div>
+            <div class="field">
+              <label>Last name</label>
+              <input type="text" id="regLast" placeholder="Khan">
+              <div class="field-error" id="regLastErr">Required.</div>
+            </div>
+          </div>
+
+          <div class="field">
+            <label>Email address</label>
+            <input type="email" id="regEmail" placeholder="you@example.com">
+            <div class="field-error" id="regEmailErr">Enter a valid email.</div>
+          </div>
+
+          <div class="field">
+            <label>Phone number</label>
+            <input type="tel" id="regPhone" placeholder="03XX-XXXXXXX">
+            <div class="field-error" id="regPhoneErr">Enter a valid phone number.</div>
+          </div>
+
+          <div class="field">
+            <label>City / Area</label>
+            <input type="text" id="regCity" placeholder="e.g. Karachi, DHA Phase 5">
+            <div class="field-error" id="regCityErr">Required.</div>
+          </div>
+
+          <div class="teacher-fields" id="teacherFields">
+            <div class="field">
+              <label>Subject(s) you teach</label>
+              <input type="text" id="regSubjects" placeholder="e.g. Maths, Physics, Chemistry">
+            </div>
+            <div class="field">
+              <label>Qualification</label>
+              <input type="text" id="regQual" placeholder="e.g. BS Computer Science">
+            </div>
+            <div class="field">
+              <label>Short bio</label>
+              <textarea id="regBio" placeholder="Tell students about your teaching experience..."></textarea>
+            </div>
+          </div>
+
+          <div class="field">
+            <label>Password</label>
+            <div class="field-wrap">
+              <input type="password" id="regPass" placeholder="Min. 8 characters">
+              <button class="eye-btn" onclick="togglePw('regPass', this)">👁</button>
+            </div>
+            <div class="field-error" id="regPassErr">Password must be at least 8 characters.</div>
+          </div>
+
+          <div class="field">
+            <label>Confirm password</label>
+            <div class="field-wrap">
+              <input type="password" id="regPass2" placeholder="Repeat your password">
+              <button class="eye-btn" onclick="togglePw('regPass2', this)">👁</button>
+            </div>
+            <div class="field-error" id="regPass2Err">Passwords do not match.</div>
+          </div>
+
+          <button class="btn-primary" onclick="handleRegister()" id="registerBtn">
+            <span class="btn-text">Create Account</span>
+            <div class="spinner"></div>
+          </button>
+
+          <div class="switch-link">
+            Already have an account?
+            <button onclick="switchTab('login')">Sign in</button>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<!-- ===================== STUDENT DASHBOARD ===================== -->
+<div class="screen" id="studentDash" style="flex-direction:column;overflow:hidden">
+  <nav class="topbar">
+    <div class="topbar-left">
+      <div class="logo-sm" onclick="goToDash()">Tutor<span>Link</span></div>
+    </div>
+    <div class="topbar-right">
+      <div class="avatar" id="stdAvatar">S</div>
+      <div>
+        <div class="uname" id="stdName">Student</div>
+        <div class="urole">Student</div>
+      </div>
+      <button class="btn-sm" onclick="logout()">← Logout</button>
+    </div>
+  </nav>
+
+  <div class="dash-body">
+    <div class="welcome-banner">
+      <h2 id="stdWelcome">Welcome back! 👋</h2>
+      <p>Post your tuition requirement and let qualified teachers reach out to you.</p>
+    </div>
+
+    <div class="dash-cards" id="stdCards"></div>
+  </div>
+</div>
+
+<!-- ===================== POST REQUIREMENT PAGE ===================== -->
+<div class="screen" id="postReqPage" style="flex-direction:column;overflow:hidden">
+  <nav class="topbar">
+    <div class="topbar-left">
+      <div class="logo-sm" onclick="goToDash()">Tutor<span>Link</span></div>
+    </div>
+    <div class="topbar-right">
+      <div class="avatar" id="postAvatar">S</div>
+      <span class="uname" id="postName">Student</span>
+      <button class="btn-sm" onclick="logout()">← Dashboard</button>
+    </div>
+  </nav>
+
+  <div class="page">
+    <div class="page-header">
+      <div class="breadcrumb">
+        <a onclick="goToDash()">Dashboard</a> › Post Requirement
+      </div>
+      <h1>Post a Tuition Requirement</h1>
+      <p>Fill in your details and qualified teachers in your area will reach out to you.</p>
+    </div>
+
+    <div class="steps">
+      <div class="step active" id="s1">
+        <div class="step-num">1</div>
+        <div class="step-label">Subject & Details</div>
+      </div>
+      <div class="step-line"></div>
+      <div class="step" id="s2">
+        <div class="step-num">2</div>
+        <div class="step-label">Schedule & Budget</div>
+      </div>
+      <div class="step-line"></div>
+      <div class="step" id="s3">
+        <div class="step-num">3</div>
+        <div class="step-label">Location & Preferences</div>
+      </div>
+      <div class="step-line"></div>
+      <div class="step" id="s4">
+        <div class="step-num">✓</div>
+        <div class="step-label">Published</div>
+      </div>
+    </div>
+
+    <div id="formState">
+      <div class="grid">
+        <!-- FORM -->
+        <div>
+          <!-- Section 1 -->
+          <div class="card">
+            <div class="card-title">📚 Subject & Class</div>
+            <div class="card-sub">Which subject do you need help with?</div>
+
+            <div class="field">
+              <label>Quick select subject</label>
+              <div class="chip-grid">
+                <div class="chip" onclick="toggleChip(this)">Mathematics</div>
+                <div class="chip" onclick="toggleChip(this)">Physics</div>
+                <div class="chip" onclick="toggleChip(this)">Chemistry</div>
+                <div class="chip" onclick="toggleChip(this)">Biology</div>
+                <div class="chip" onclick="toggleChip(this)">English</div>
+                <div class="chip" onclick="toggleChip(this)">Computer</div>
+              </div>
+            </div>
+
+            <div class="field">
+              <label>Subject name</label>
+              <input type="text" id="subject" placeholder="e.g. A-Level Mathematics" oninput="updatePreview()">
+              <div class="field-error" id="subjectErr">Please enter or select a subject.</div>
+            </div>
+
+            <div class="row2">
+              <div class="field">
+                <label>Class / Grade</label>
+                <select id="grade" onchange="updatePreview()">
+                  <option value="">Select grade</option>
+                  <option>Matric (9th)</option>
+                  <option>Matric (10th)</option>
+                  <option>Inter (11th)</option>
+                  <option>Inter (12th)</option>
+                  <option>O-Levels</option>
+                  <option>A-Levels</option>
+                </select>
+                <div class="field-error" id="gradeErr">Please select your grade.</div>
+              </div>
+              <div class="field">
+                <label>Board / System</label>
+                <select id="board" onchange="updatePreview()">
+                  <option value="">Select board</option>
+                  <option>Federal Board</option>
+                  <option>Sindh Board</option>
+                  <option>Cambridge (CAIE)</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="field">
+              <label>Describe your problem / goal</label>
+              <textarea id="description" placeholder="e.g. I'm weak in calculus..." oninput="updatePreview()"></textarea>
+            </div>
+          </div>
+
+          <!-- Section 2 -->
+          <div class="card">
+            <div class="card-title">📅 Schedule & Budget</div>
+            <div class="card-sub">When do you want classes and how much can you pay?</div>
+
+            <div class="field">
+              <label>Preferred time slots</label>
+              <div class="slot-grid">
+                <div class="slot" onclick="toggleSlot(this)">Morning (7–10 AM)</div>
+                <div class="slot" onclick="toggleSlot(this)">Late Morning (10–12 PM)</div>
+                <div class="slot" onclick="toggleSlot(this)">Afternoon (12–3 PM)</div>
+                <div class="slot" onclick="toggleSlot(this)">Evening (4–7 PM)</div>
+                <div class="slot" onclick="toggleSlot(this)">Night (7–9 PM)</div>
+                <div class="slot" onclick="toggleSlot(this)">Weekends Only</div>
+              </div>
+              <div class="field-error" id="slotErr">Please select at least one time slot.</div>
+            </div>
+
+            <div class="row2">
+              <div class="field">
+                <label>Sessions per week</label>
+                <select id="sessions" onchange="updatePreview()">
+                  <option value="">Select</option>
+                  <option>1 session/week</option>
+                  <option>2 sessions/week</option>
+                  <option>3 sessions/week</option>
+                  <option>Daily (Mon–Fri)</option>
+                </select>
+              </div>
+              <div class="field">
+                <label>Session duration</label>
+                <select id="duration" onchange="updatePreview()">
+                  <option value="">Select</option>
+                  <option>45 minutes</option>
+                  <option>1 hour</option>
+                  <option>1.5 hours</option>
+                  <option>2 hours</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="field">
+              <label>Monthly budget — PKR <span id="budgetVal" style="color:var(--teal);font-weight:700">3,000</span></label>
+              <div class="budget-display" id="budgetDisplay">PKR 3,000 <span>/month</span></div>
+              <input type="range" id="budgetSlider" min="500" max="15000" step="500" value="3000" oninput="updateBudget(this.value)">
+            </div>
+          </div>
+
+          <!-- Section 3 -->
+          <div class="card">
+            <div class="card-title">📍 Location & Preferences</div>
+            <div class="card-sub">Where are you located and any teacher preferences?</div>
+
+            <div class="row2">
+              <div class="field">
+                <label>City</label>
+                <select id="city" onchange="updatePreview()">
+                  <option value="">Select city</option>
+                  <option>Karachi</option>
+                  <option>Lahore</option>
+                  <option>Islamabad</option>
+                  <option>Rawalpindi</option>
+                  <option>Peshawar</option>
+                </select>
+                <div class="field-error" id="cityErr">Please select your city.</div>
+              </div>
+              <div class="field">
+                <label>Area / Locality</label>
+                <input type="text" id="area" placeholder="e.g. DHA Phase 5, Gulshan" oninput="updatePreview()">
+                <div class="field-error" id="areaErr">Please enter your area.</div>
+              </div>
+            </div>
+
+            <div class="field">
+              <label>Full address (optional — only shared with hired teacher)</label>
+              <input type="text" id="address" placeholder="House #, Street, Block">
+            </div>
+
+            <div class="field">
+              <label>Teacher gender preference</label>
+              <div class="gender-row">
+                <div class="gender-opt selected" id="gAny" onclick="selectGender('any')">
+                  <span class="g-icon">👥</span> Any
+                </div>
+                <div class="gender-opt" id="gMale" onclick="selectGender('male')">
+                  <span class="g-icon">👨‍🏫</span> Male only
+                </div>
+                <div class="gender-opt" id="gFemale" onclick="selectGender('female')">
+                  <span class="g-icon">👩‍🏫</span> Female only
+                </div>
+              </div>
+            </div>
+
+            <div class="field">
+              <label>How urgently do you need a teacher?</label>
+              <div class="urgency-row">
+                <div class="urgency-btn low" onclick="selectUrgency('low', this)">
+                  <span class="u-icon">🟢</span> Not urgent
+                </div>
+                <div class="urgency-btn medium selected" onclick="selectUrgency('medium', this)">
+                  <span class="u-icon">🟡</span> Within a week
+                </div>
+                <div class="urgency-btn high" onclick="selectUrgency('high', this)">
+                  <span class="u-icon">🔴</span> ASAP
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Contact -->
+          <div class="card">
+            <div class="card-title">📞 Contact Details</div>
+            <div class="card-sub">Teachers will use this to reach you.</div>
+
+            <div class="row2">
+              <div class="field">
+                <label>Student name</label>
+                <input type="text" id="contactName" placeholder="Your name" oninput="updatePreview()">
+                <div class="field-error" id="contactNameErr">Name is required.</div>
+              </div>
+              <div class="field">
+                <label>Phone number</label>
+                <input type="tel" id="contactPhone" placeholder="03XX-XXXXXXX" oninput="updatePreview()">
+                <div class="field-error" id="contactPhoneErr">Enter a valid phone number.</div>
+              </div>
+            </div>
+
+            <div class="field">
+              <label>Parent / Guardian phone (optional)</label>
+              <input type="tel" id="parentPhone" placeholder="03XX-XXXXXXX">
+            </div>
+
+            <button class="btn-primary" onclick="submitRequirement()" id="submitBtn">
+              <span class="btn-text">🚀 Publish Requirement</span>
+              <div class="spinner"></div>
+            </button>
+          </div>
+        </div>
+
+        <!-- SIDEBAR -->
+        <div class="sidebar-card">
+          <div class="preview-card">
+            <h3>Live Preview</h3>
+            <div class="preview-item">
+              <div class="pi-icon">📚</div>
+              <div class="pi-content">
+                <div class="pi-label">Subject</div>
+                <div class="pi-value" id="pSubject">—</div>
+              </div>
+            </div>
+            <div class="preview-item">
+              <div class="pi-icon">📍</div>
+              <div class="pi-content">
+                <div class="pi-label">Location</div>
+                <div class="pi-value" id="pLocation">—</div>
+              </div>
+            </div>
+            <div class="preview-item">
+              <div class="pi-icon">💰</div>
+              <div class="pi-content">
+                <div class="pi-label">Budget</div>
+                <div class="pi-value" id="pBudget">PKR 3,000/month</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="info-card">
+            <h3>💡 Tips for faster response</h3>
+            <div class="tip">
+              <div class="tip-icon">📝</div>
+              <div class="tip-text"><strong>Be specific</strong> about your weak areas.</div>
+            </div>
+            <div class="tip">
+              <div class="tip-icon">📍</div>
+              <div class="tip-text"><strong>Add your locality</strong> so nearby teachers can find you on the map.</div>
+            </div>
+            <div class="tip">
+              <div class="tip-icon">💰</div>
+              <div class="tip-text"><strong>Set a realistic budget</strong> — PKR 3,000–8,000/month is typical.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SUCCESS STATE -->
+    <div id="successState">
+      <div class="success-icon">🎉</div>
+      <h2>Requirement Published!</h2>
+      <p>Your tuition requirement is now live. Teachers in your area can see it on the map. Average response time is 4–8 hours.</p>
+      <div>
+        <button class="btn-secondary" onclick="postAnother()">Post Another</button>
+        <button class="btn-secondary" onclick="goToDash()">← Dashboard</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== TEACHER MAP PAGE ===================== -->
+<div class="screen" id="teacherMapPage">
+  <nav class="topbar">
+    <div class="topbar-left">
+      <div class="logo-sm" onclick="goToDash()">Tutor<span>Link</span></div>
+    </div>
+    <div class="topbar-right">
+      <div class="avatar" id="teachAvatar">T</div>
+      <div>
+        <div class="uname" id="teachName">Teacher</div>
+        <div class="urole">Teacher</div>
+      </div>
+      <button class="btn-sm" onclick="logout()">← Logout</button>
+    </div>
+  </nav>
+
+  <div class="filterbar">
+    <span class="filter-label">Filter:</span>
+    <select class="filter-select" id="fSubject" onchange="applyFilters()">
+      <option value="">All subjects</option>
+      <option>Mathematics</option>
+      <option>Physics</option>
+      <option>Chemistry</option>
+      <option>Biology</option>
+      <option>English</option>
+      <option>Computer</option>
+    </select>
+    <select class="filter-select" id="fGrade" onchange="applyFilters()">
+      <option value="">All grades</option>
+      <option>Matric (9th)</option>
+      <option>Matric (10th)</option>
+      <option>Inter (11th)</option>
+      <option>Inter (12th)</option>
+    </select>
+    <select class="filter-select" id="fUrgency" onchange="applyFilters()">
+      <option value="">Any urgency</option>
+      <option value="high">🔴 ASAP</option>
+      <option value="medium">🟡 This week</option>
+      <option value="low">🟢 Not urgent</option>
+    </select>
+    <input class="filter-search" id="fSearch" placeholder="🔍  Search area, subject..." oninput="applyFilters()">
+    <div class="req-count" id="reqCount">0 open requests</div>
+  </div>
+
+  <div class="map-container">
+    <div id="map"></div>
+
+    <div class="map-legend">
+      <div class="legend-title">Pin status</div>
+      <div class="legend-item"><div class="legend-dot" style="background:var(--teal)"></div> Open</div>
+      <div class="legend-item"><div class="legend-dot" style="background:var(--error)"></div> Urgent (ASAP)</div>
+      <div class="legend-item"><div class="legend-dot" style="background:var(--gold)"></div> Contacted</div>
+    </div>
+
+    <!-- SIDE PANEL -->
+    <div class="panel" id="sidePanel">
+      <div class="empty-panel" id="emptyPanel">
+        <div class="e-icon">📍</div>
+        <h3>Select a student pin</h3>
+        <p>Click any pin on the map to see full requirement details and contact the student.</p>
+      </div>
+
+      <div id="panelContent" style="display:none;flex-direction:column;height:100%">
+        <div class="panel-header">
+          <div>
+            <div class="panel-subject" id="pSubject">—</div>
+            <div class="panel-grade" id="pGrade">—</div>
+          </div>
+          <div class="panel-close" onclick="closePanel()">✕</div>
+        </div>
+
+        <div class="panel-body">
+          <div style="margin-bottom:16px">
+            <span class="urgency-pill" id="pUrgency">—</span>
+          </div>
+
+          <div class="detail-section">
+            <h4>Requirement details</h4>
+            <div class="detail-row">
+              <div class="detail-icon">📍</div>
+              <div class="detail-content">
+                <div class="detail-label">Location</div>
+                <div class="detail-value" id="pLocation">—</div>
+              </div>
+            </div>
+            <div class="detail-row">
+              <div class="detail-icon">💰</div>
+              <div class="detail-content">
+                <div class="detail-label">Monthly budget</div>
+                <div class="detail-value" id="pBudget">—</div>
+              </div>
+            </div>
+            <div class="detail-row">
+              <div class="detail-icon">📅</div>
+              <div class="detail-content">
+                <div class="detail-label">Sessions</div>
+                <div class="detail-value" id="pSessions">—</div>
+              </div>
+            </div>
+            <div class="detail-row">
+              <div class="detail-icon">⏱</div>
+              <div class="detail-content">
+                <div class="detail-label">Duration per session</div>
+                <div class="detail-value" id="pDuration">—</div>
+              </div>
+            </div>
+            <div class="detail-row">
+              <div class="detail-icon">👥</div>
+              <div class="detail-content">
+                <div class="detail-label">Teacher preference</div>
+                <div class="detail-value" id="pGender">—</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="detail-section">
+            <h4>Preferred time slots</h4>
+            <div class="slot-tags" id="pSlots"></div>
+          </div>
+
+          <div class="detail-section" id="descSection">
+            <h4>Student's note</h4>
+            <div class="desc-box" id="pDescription">—</div>
+          </div>
+
+          <div class="detail-section">
+            <h4>Contact info</h4>
+            <div class="detail-row">
+              <div class="detail-icon">👤</div>
+              <div class="detail-content">
+                <div class="detail-label">Student name</div>
+                <div class="detail-value" id="pName">—</div>
+              </div>
+            </div>
+            <div class="detail-row">
+              <div class="detail-icon">📞</div>
+              <div class="detail-content">
+                <div class="detail-label">Phone</div>
+                <div class="detail-value" id="pPhone">—</div>
+              </div>
+            </div>
+            <div class="detail-row">
+              <div class="detail-icon">🕐</div>
+              <div class="detail-content">
+                <div class="detail-label">Posted</div>
+                <div class="detail-value" id="pPosted">—</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel-footer">
+          <button class="btn-primary" onclick="openMessageModal()">✉️ Send Message to Student</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== ADMIN PANEL ===================== -->
+<div class="screen" id="adminPage" style="flex-direction:column;overflow:hidden">
+  <nav class="admin-topbar">
+    <div style="display:flex;align-items:center;gap:10px">
+      <div class="admin-logo">Tutor<span>Link</span></div>
+      <span class="admin-badge">ADMIN</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px">
+      <span style="font-size:13px;color:rgba(255,255,255,0.6)">admin@tutorlink.pk</span>
+      <button class="btn-sm" onclick="logout()">← Logout</button>
+    </div>
+  </nav>
+
+  <div class="admin-layout">
+    <nav class="admin-nav">
+      <div class="admin-nav-label">Overview</div>
+      <div class="nav-item active" onclick="adminNav('overview', this)"><span class="nav-icon">📊</span> Dashboard</div>
+      <div class="admin-nav-label">Manage</div>
+      <div class="nav-item" onclick="adminNav('users', this)"><span class="nav-icon">👥</span> Users <span class="nav-badge" id="navUserCount">0</span></div>
+      <div class="nav-item" onclick="adminNav('requests', this)"><span class="nav-icon">📋</span> Requirements <span class="nav-badge" id="navReqCount">0</span></div>
+      <div class="nav-item" onclick="adminNav('messages', this)"><span class="nav-icon">💬</span> Messages <span class="nav-badge" id="navMsgCount">0</span></div>
+      <div class="admin-nav-label">System</div>
+      <div class="nav-item" onclick="adminNav('activity', this)"><span class="nav-icon">📝</span> Activity Log</div>
+      <div class="nav-item" onclick="adminNav('settings', this)"><span class="nav-icon">⚙️</span> Settings</div>
+    </nav>
+
+    <div class="admin-content">
+
+      <!-- OVERVIEW -->
+      <div class="admin-section active" id="sec-overview">
+        <h2 style="font-family:'DM Serif Display',serif;font-size:26px;margin-bottom:6px">Admin Dashboard</h2>
+        <p style="font-size:14px;color:var(--muted);margin-bottom:24px">Full control over TutorLink platform.</p>
+        <div class="stat-grid" id="statGrid"></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px">
+          <div class="admin-table-wrap" style="padding:20px">
+            <h3 style="font-size:14px;font-weight:600;margin-bottom:14px">📍 Requests by City</h3>
+            <div id="cityChart"></div>
+          </div>
+          <div class="admin-table-wrap" style="padding:20px">
+            <h3 style="font-size:14px;font-weight:600;margin-bottom:14px">📚 Top Subjects</h3>
+            <div id="subjectChart"></div>
+          </div>
+        </div>
+        <div class="admin-table-wrap">
+          <div class="table-header"><h3>Recent Activity</h3></div>
+          <div style="padding:4px 20px 12px" id="recentActivity"></div>
+        </div>
+      </div>
+
+      <!-- USERS -->
+      <div class="admin-section" id="sec-users">
+        <h2 style="font-family:'DM Serif Display',serif;font-size:26px;margin-bottom:20px">Users</h2>
+        <div style="display:flex;gap:8px;margin-bottom:16px">
+          <div class="admin-tab-bar">
+            <button class="admin-tab active" onclick="filterUsers('all',this)">All</button>
+            <button class="admin-tab" onclick="filterUsers('student',this)">Students</button>
+            <button class="admin-tab" onclick="filterUsers('teacher',this)">Teachers</button>
+          </div>
+          <input class="table-search" id="userSearch" placeholder="🔍 Search users..." oninput="renderUsersTable()">
+        </div>
+        <div class="admin-table-wrap">
+          <table>
+            <thead><tr><th>Name</th><th>Email</th><th>Phone</th><th>City</th><th>Role</th><th>Joined</th><th>Actions</th></tr></thead>
+            <tbody id="usersTableBody"></tbody>
+          </table>
+          <div class="empty-table" id="usersEmpty" style="display:none">No users found.</div>
+        </div>
+      </div>
+
+      <!-- REQUIREMENTS -->
+      <div class="admin-section" id="sec-requests">
+        <h2 style="font-family:'DM Serif Display',serif;font-size:26px;margin-bottom:20px">Tuition Requirements</h2>
+        <div style="display:flex;gap:8px;margin-bottom:16px">
+          <div class="admin-tab-bar">
+            <button class="admin-tab active" onclick="filterReqs('all',this)">All</button>
+            <button class="admin-tab" onclick="filterReqs('open',this)">Open</button>
+            <button class="admin-tab" onclick="filterReqs('contacted',this)">Contacted</button>
+            <button class="admin-tab" onclick="filterReqs('high',this)">🔴 Urgent</button>
+          </div>
+          <input class="table-search" id="reqSearch" placeholder="🔍 Search..." oninput="renderReqsTable()">
+        </div>
+        <div class="admin-table-wrap">
+          <table>
+            <thead><tr><th>Subject</th><th>Student</th><th>Location</th><th>Budget</th><th>Urgency</th><th>Status</th><th>Posted</th><th>Actions</th></tr></thead>
+            <tbody id="reqsTableBody"></tbody>
+          </table>
+          <div class="empty-table" id="reqsEmpty" style="display:none">No requirements found.</div>
+        </div>
+      </div>
+
+      <!-- MESSAGES -->
+      <div class="admin-section" id="sec-messages">
+        <h2 style="font-family:'DM Serif Display',serif;font-size:26px;margin-bottom:20px">Messages Log</h2>
+        <div class="admin-table-wrap">
+          <table>
+            <thead><tr><th>From (Teacher)</th><th>To (Student)</th><th>Subject</th><th>Message Preview</th><th>Sent</th><th>Actions</th></tr></thead>
+            <tbody id="msgsTableBody"></tbody>
+          </table>
+          <div class="empty-table" id="msgsEmpty" style="display:none">No messages yet.</div>
+        </div>
+      </div>
+
+      <!-- ACTIVITY -->
+      <div class="admin-section" id="sec-activity">
+        <h2 style="font-family:'DM Serif Display',serif;font-size:26px;margin-bottom:20px">Activity Log</h2>
+        <div class="admin-table-wrap" style="padding:8px 20px">
+          <div id="activityLog"></div>
+        </div>
+      </div>
+
+      <!-- SETTINGS -->
+      <div class="admin-section" id="sec-settings">
+        <h2 style="font-family:'DM Serif Display',serif;font-size:26px;margin-bottom:20px">Settings</h2>
+        <div class="admin-table-wrap" style="padding:28px;margin-bottom:16px">
+          <h3 style="font-size:15px;font-weight:600;margin-bottom:16px">🔐 Admin Login Credentials</h3>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px">
+            <div class="field"><label>Admin Email</label><input type="email" value="admin@tutorlink.pk" readonly style="background:var(--cream)"></div>
+            <div class="field"><label>Admin Password</label><input type="text" value="admin123" readonly style="background:var(--cream)"></div>
+          </div>
+          <p style="font-size:12px;color:var(--muted)">Use these on the login screen to access the admin panel.</p>
+        </div>
+        <div class="admin-table-wrap" style="padding:28px;margin-bottom:16px">
+          <h3 style="font-size:15px;font-weight:600;margin-bottom:16px">🗑️ Data Management</h3>
+          <div style="display:flex;gap:10px;flex-wrap:wrap">
+            <button class="action-btn del" style="padding:10px 18px;font-size:13px" onclick="clearAllReqs()">Clear All Requirements</button>
+            <button class="action-btn del" style="padding:10px 18px;font-size:13px" onclick="clearAllMessages()">Clear All Messages</button>
+            <button class="action-btn del" style="padding:10px 18px;font-size:13px" onclick="clearAllUsers()">Clear All Users</button>
+          </div>
+        </div>
+        <div class="admin-table-wrap" style="padding:28px">
+          <h3 style="font-size:15px;font-weight:600;margin-bottom:16px">📊 Platform Info</h3>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;font-size:13px;color:var(--muted)">
+            <div>Version: <strong style="color:var(--ink)">1.0.0</strong></div>
+            <div>Project: <strong style="color:var(--ink)">CS 3rd Semester</strong></div>
+            <div>Platform: <strong style="color:var(--ink)">TutorLink Pakistan</strong></div>
+            <div>Backend: <strong style="color:var(--ink)">Spring Boot + Java</strong></div>
+            <div>Database: <strong style="color:var(--ink)">MySQL (TuitionSystem)</strong></div>
+            <div>API: <strong style="color:var(--ink)">http://localhost:8080/api</strong></div>
+            <div>Storage: <strong style="color:var(--ink)">MySQL + Spring Boot</strong></div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- MESSAGE MODAL -->
+<div class="modal-overlay" id="msgModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>Send a Message</h3>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="modal-to">To: <strong id="msgTo">Student</strong> — <span id="msgSubject" style="color:var(--teal)"></span></div>
+      <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.07em;margin-bottom:6px">Quick templates</div>
+      <div class="msg-templates">
+        <div class="msg-template" onclick="useTemplate('intro')">👋 Introduction</div>
+        <div class="msg-template" onclick="useTemplate('visit')">🏠 Request visit</div>
+        <div class="msg-template" onclick="useTemplate('trial')">📚 Offer trial</div>
+        <div class="msg-template" onclick="useTemplate('avail')">📅 Availability</div>
+      </div>
+      <textarea class="modal-textarea" id="msgText" placeholder="Write your message to the student..."></textarea>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" onclick="closeModal()">Cancel</button>
+      <button class="btn-send" id="sendBtn" onclick="sendMessage()">Send Message ✉️</button>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+// ══════════════════════════ CONFIG & STATE ══════════════════════════
+
+const API = 'https://tutorlink-backend-production.up.railway.app/api';
+let currentSession = JSON.parse(localStorage.getItem('tutorlink_session') || 'null');
+let currentRole = 'student';
+let currentTab  = 'login';
+
+// Demo requirements shown on map before real data loads
+const demoReqs = [
+  { id: 1001, subject: 'Mathematics', grade: 'Matric (10th)', board: 'Sindh Board', description: 'Need help with algebra and geometry. Exams in 6 weeks.', slots: ['Evening (4–7 PM)'], sessions: '3 sessions/week', duration: '1 hour', budget: 4000, city: 'Karachi', area: 'DHA Phase 5', gender: 'any', urgency: 'high', contactName: 'Sara Ahmed', contactPhone: '0312-3456789', lat: 24.7963, lng: 67.0641, status: 'open', postedAt: new Date(Date.now()-3600000).toISOString() },
+  { id: 1002, subject: 'Physics', grade: 'Inter (11th)', board: 'Federal Board', description: 'Struggling with mechanics and waves.', slots: ['Morning (7–10 AM)'], sessions: '2 sessions/week', duration: '1.5 hours', budget: 5500, city: 'Karachi', area: 'Gulshan-e-Iqbal', gender: 'female', urgency: 'medium', contactName: 'Fatima Khan', contactPhone: '0333-9876543', lat: 24.9215, lng: 67.0801, status: 'open', postedAt: new Date(Date.now()-7200000).toISOString() },
+  { id: 1003, subject: 'English', grade: 'O-Levels', board: 'Cambridge (CAIE)', description: 'Need help with essay writing and comprehension.', slots: ['Afternoon (12–3 PM)'], sessions: 'Daily (Mon–Fri)', duration: '1 hour', budget: 7000, city: 'Karachi', area: 'Clifton', gender: 'any', urgency: 'low', contactName: 'Ali Raza', contactPhone: '0321-5555555', lat: 24.8121, lng: 67.0296, status: 'contacted', postedAt: new Date(Date.now()-86400000).toISOString() },
+  { id: 1004, subject: 'Chemistry', grade: 'A-Levels', board: 'Cambridge (CAIE)', description: 'A2 Chemistry — organic and physical chemistry.', slots: ['Evening (4–7 PM)'], sessions: '2 sessions/week', duration: '2 hours', budget: 9000, city: 'Karachi', area: 'PECHS', gender: 'male', urgency: 'high', contactName: 'Hamza Sheikh', contactPhone: '0345-1112222', lat: 24.8721, lng: 67.0604, status: 'open', postedAt: new Date(Date.now()-1800000).toISOString() },
+  { id: 1005, subject: 'Biology', grade: 'Inter (12th)', board: 'Sindh Board', description: 'Pre-medical student. Need help with genetics.', slots: ['Morning (7–10 AM)'], sessions: '3 sessions/week', duration: '1 hour', budget: 4500, city: 'Karachi', area: 'Nazimabad', gender: 'female', urgency: 'medium', contactName: 'Mehwish Ali', contactPhone: '0301-4445566', lat: 24.9183, lng: 67.0524, status: 'open', postedAt: new Date(Date.now()-43200000).toISOString() },
+];
+
+let allRequirements = [...demoReqs];
+let filteredReqs    = [...allRequirements];
+let selectedReq     = null;
+let map             = null;
+let markers         = [];
+
+// Form state
+let selectedSubject = '';
+let selectedSlots   = [];
+let selectedGender  = 'any';
+let selectedUrgency = 'medium';
+let budget          = 3000;
+
+// ══════════════════════════ API HELPERS ══════════════════════════
+
+async function apiPost(path, body) {
+  const res = await fetch(API + path, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  });
+  return res;
+}
+
+async function apiGet(path) {
+  const res = await fetch(API + path);
+  if (!res.ok) throw new Error('API error');
+  return res.json();
+}
+
+async function apiDelete(path) {
+  const res = await fetch(API + path, { method: 'DELETE' });
+  return res;
+}
+
+async function apiPatch(path, body) {
+  const res = await fetch(API + path, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  });
+  return res;
+}
+
+// ══════════════════════════ NAVIGATION ══════════════════════════
+
+function goToScreen(screenId) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(screenId).classList.add('active');
+
+  if (screenId === 'postReqPage') {
+    setTimeout(() => {
+      if (currentSession) {
+        document.getElementById('postAvatar').textContent = (currentSession.fullName||'S')[0].toUpperCase();
+        document.getElementById('postName').textContent   = currentSession.fullName || '';
+        document.getElementById('contactName').value      = currentSession.fullName || '';
+        document.getElementById('city').value             = currentSession.city ? currentSession.city.split(',')[0].trim() : '';
+      }
+    }, 50);
+  }
+
+  if (screenId === 'teacherMapPage') {
+    setTimeout(() => {
+      if (currentSession) {
+        document.getElementById('teachAvatar').textContent = (currentSession.fullName||'T')[0].toUpperCase();
+        document.getElementById('teachName').textContent   = currentSession.fullName || '';
+      }
+      if (!map) initMap();
+      else map.invalidateSize();
+      loadAndRenderRequirements();
+    }, 50);
+  }
+}
+
+function goToDash() {
+  if (!currentSession) return;
+  if (currentSession.role === 'teacher') { goToScreen('teacherDashPage'); showTeacherDash(); }
+  else if (currentSession.role === 'admin') { goToAdmin(); }
+  else { showStudentDash(); }
+}
+
+// ══════════════════════════ AUTH ══════════════════════════
+
+const ADMIN_EMAIL = 'admin@tutorlink.pk';
+const ADMIN_PASS  = 'admin123';
+
+function switchTab(tab) {
+  currentTab = tab;
+  document.querySelectorAll('.tab').forEach((t, i) => {
+    t.classList.toggle('active', (i===0 && tab==='login') || (i===1 && tab==='register'));
+  });
+  document.getElementById('loginSection').classList.toggle('active', tab==='login');
+  document.getElementById('registerSection').classList.toggle('active', tab==='register');
+  clearErrors();
+}
+
+function selectRole(role) {
+  currentRole = role;
+  document.getElementById('roleStudent').classList.toggle('selected', role==='student');
+  document.getElementById('roleTeacher').classList.toggle('selected', role==='teacher');
+  document.getElementById('teacherFields').classList.toggle('show', role==='teacher');
+}
+
+function togglePw(id, btn) {
+  const inp = document.getElementById(id);
+  inp.type  = inp.type === 'password' ? 'text' : 'password';
+  btn.textContent = inp.type === 'password' ? '👁' : '🙈';
+}
+
+function clearErrors() {
+  document.querySelectorAll('.field-error').forEach(e => e.classList.remove('show'));
+  document.querySelectorAll('input,select,textarea').forEach(e => e.classList.remove('err'));
+}
+
+function isEmail(v) { return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v); }
+function isPhone(v) { return /^[0-9\-\+\s]{10,14}$/.test(v); }
+
+function showErr(id, msg) {
+  const el = document.getElementById(id);
+  if (msg) el.textContent = msg;
+  el.classList.add('show');
+}
+
+// ── LOGIN ──
+async function handleLogin() {
+  clearErrors();
+  const email = document.getElementById('loginEmail').value.trim();
+  const pass  = document.getElementById('loginPass').value;
+  let ok = true;
+  if (!isEmail(email)) { showErr('loginEmailErr'); ok = false; }
+  if (!pass)            { showErr('loginPassErr');  ok = false; }
+  if (!ok) return;
+
+  // Admin shortcut
+  if (email === ADMIN_EMAIL && pass === ADMIN_PASS) {
+    currentSession = { id: 0, role: 'admin', fullName: 'Admin', email };
+    localStorage.setItem('tutorlink_session', JSON.stringify(currentSession));
+    showToast('Welcome, Admin!');
+    setTimeout(() => goToAdmin(), 600);
+    return;
+  }
+
+  const btn = document.getElementById('loginBtn');
+  btn.classList.add('loading');
+
+  try {
+    const res  = await apiPost('/users/login', { email, password: pass });
+    const data = await res.json();
+    btn.classList.remove('loading');
+
+    if (!res.ok) {
+      showToast('Wrong email or password. Please try again.', 'error');
+      showErr('loginEmailErr', '⚠️ Email or password is incorrect.');
+      return;
+    }
+
+    currentSession = data;
+    localStorage.setItem('tutorlink_session', JSON.stringify(data));
+    showToast(`Welcome back, ${data.fullName}!`);
+    setTimeout(() => {
+      if (data.role === 'teacher') { goToScreen('teacherDashPage'); showTeacherDash(); }
+      else { showStudentDash(); }
+    }, 600);
+  } catch (e) {
+    btn.classList.remove('loading');
+    showToast('Cannot connect to server. Is Spring Boot running?', 'error');
+  }
+}
+
+// ── REGISTER ──
+async function handleRegister() {
+  clearErrors();
+  const first = document.getElementById('regFirst').value.trim();
+  const last  = document.getElementById('regLast').value.trim();
+  const email = document.getElementById('regEmail').value.trim();
+  const phone = document.getElementById('regPhone').value.trim();
+  const city  = document.getElementById('regCity').value.trim();
+  const pass  = document.getElementById('regPass').value;
+  const pass2 = document.getElementById('regPass2').value;
+  let ok = true;
+
+  if (!first)          { showErr('regFirstErr');  ok = false; }
+  if (!last)           { showErr('regLastErr');   ok = false; }
+  if (!isEmail(email)) { showErr('regEmailErr');  ok = false; }
+  if (!isPhone(phone)) { showErr('regPhoneErr');  ok = false; }
+  if (!city)           { showErr('regCityErr');   ok = false; }
+  if (pass.length < 8) { showErr('regPassErr');   ok = false; }
+  if (pass !== pass2)  { showErr('regPass2Err');  ok = false; }
+  if (!ok) return;
+
+  const btn = document.getElementById('registerBtn');
+  btn.classList.add('loading');
+
+  try {
+    const res  = await apiPost('/users/register', {
+      fullName: first + ' ' + last,
+      email, password: pass, city,
+      role: currentRole
+    });
+    const data = await res.json();
+    btn.classList.remove('loading');
+
+    if (!res.ok) {
+      const msg = typeof data === 'string' ? data : 'Registration failed.';
+      if (msg.toLowerCase().includes('email') || msg.toLowerCase().includes('already') || res.status === 400) {
+        showErr('regEmailErr', '⚠️ This email is already registered. Please login instead.');
+        showToast('Account already exists! Please sign in.', 'error');
+      } else {
+        showToast(msg, 'error');
+      }
+      return;
+    }
+
+    currentSession = data;
+    localStorage.setItem('tutorlink_session', JSON.stringify(data));
+    showToast(`Welcome, ${data.fullName}!`);
+    setTimeout(() => {
+      if (data.role === 'teacher') { goToScreen('teacherDashPage'); showTeacherDash(); }
+      else { showStudentDash(); }
+    }, 600);
+  } catch (e) {
+    btn.classList.remove('loading');
+    showToast('Cannot reach server. Make sure Spring Boot is running.', 'error');
+  }
+}
+
+function logout() {
+  if (confirm('Are you sure you want to logout?')) {
+    localStorage.removeItem('tutorlink_session');
+    currentSession = null;
+    goToScreen('authScreen');
+    document.getElementById('loginEmail').value = '';
+    document.getElementById('loginPass').value  = '';
+    switchTab('login');
+    showToast('Logged out successfully.');
+  }
+}
+
+// ══════════════════════════ POST REQUIREMENT ══════════════════════════
+
+function toggleChip(el) {
+  document.querySelectorAll('.chip-grid .chip').forEach(c => c.classList.remove('selected'));
+  el.classList.add('selected');
+  selectedSubject = el.textContent;
+  document.getElementById('subject').value = selectedSubject;
+  updatePreview();
+}
+
+function toggleSlot(el) {
+  el.classList.toggle('selected');
+  selectedSlots = [...document.querySelectorAll('.slot-grid .slot.selected')].map(s => s.textContent);
+  updatePreview();
+}
+
+function selectGender(g) {
+  selectedGender = g;
+  ['gAny','gMale','gFemale'].forEach(id => document.getElementById(id).classList.remove('selected'));
+  document.getElementById(g==='any'?'gAny':g==='male'?'gMale':'gFemale').classList.add('selected');
+}
+
+function selectUrgency(level, el) {
+  selectedUrgency = level;
+  document.querySelectorAll('.urgency-btn').forEach(b => b.classList.remove('selected'));
+  el.classList.add('selected');
+}
+
+function updateBudget(val) {
+  budget = parseInt(val);
+  const f = budget.toLocaleString('en-PK');
+  document.getElementById('budgetVal').textContent    = f;
+  document.getElementById('budgetDisplay').innerHTML  = `PKR ${f} <span>/month</span>`;
+  document.getElementById('pBudget').textContent      = `PKR ${f}/month`;
+}
+
+function updatePreview() {
+  const subject = document.getElementById('subject').value || '—';
+  const city    = document.getElementById('city').value    || '';
+  const area    = document.getElementById('area').value    || '';
+  document.getElementById('pSubject').textContent  = subject;
+  document.getElementById('pLocation').textContent = [area,city].filter(Boolean).join(', ') || '—';
+}
+
+async function submitRequirement() {
+  clearErrors();
+  let ok = true;
+  const subject = document.getElementById('subject').value.trim();
+  const grade   = document.getElementById('grade').value;
+  const city    = document.getElementById('city').value;
+  const area    = document.getElementById('area').value.trim();
+  const name    = document.getElementById('contactName').value.trim();
+  const phone   = document.getElementById('contactPhone').value.trim();
+
+  if (!subject) { showErr('subjectErr'); ok = false; }
+  if (!grade)   { showErr('gradeErr');   ok = false; }
+  if (!city)    { showErr('cityErr');    ok = false; }
+  if (!area)    { showErr('areaErr');    ok = false; }
+  if (!name)    { showErr('contactNameErr');  ok = false; }
+  if (!phone || phone.replace(/\D/g,'').length < 10) { showErr('contactPhoneErr'); ok = false; }
+  if (selectedSlots.length === 0) { showErr('slotErr'); ok = false; }
+  if (!ok) { showToast('Please fill in all required fields.', 'error'); return; }
+
+  const btn = document.getElementById('submitBtn');
+  btn.classList.add('loading');
+
+  const coords = getAreaCoords(city, area);
+  const payload = {
+    studentId: currentSession?.id || null,
+    subject, grade,
+    board: document.getElementById('board').value,
+    description: document.getElementById('description').value,
+    slots: selectedSlots.join(','),
+    sessions: document.getElementById('sessions').value,
+    duration: document.getElementById('duration').value,
+    budget, city, area,
+    address: document.getElementById('address').value,
+    gender: selectedGender,
+    urgency: selectedUrgency,
+    contactName: name,
+    contactPhone: phone,
+    parentPhone: document.getElementById('parentPhone').value,
+    lat: coords.lat, lng: coords.lng,
+    status: 'open'
+  };
+
+  try {
+    const res  = await apiPost('/requirements', payload);
+    const data = await res.json();
+    btn.classList.remove('loading');
+
+    if (!res.ok) { showToast('Failed to post requirement.', 'error'); return; }
+
+    allRequirements.push({ ...data, slots: selectedSlots, postedAt: data.postedAt || new Date().toISOString() });
+    ['s1','s2','s3'].forEach(id => { document.getElementById(id).classList.remove('active'); document.getElementById(id).classList.add('done'); });
+    document.getElementById('s4').classList.add('active');
+    showToast('Requirement published!');
+    document.getElementById('formState').style.display  = 'none';
+    document.getElementById('successState').style.display = 'block';
+  } catch (e) {
+    btn.classList.remove('loading');
+    showToast('Server error. Is Spring Boot running?', 'error');
+  }
+}
+
+function getAreaCoords(city, area) {
+  const bases = { 'Karachi':{lat:24.8607,lng:67.0011},'Lahore':{lat:31.5497,lng:74.3436},'Islamabad':{lat:33.6844,lng:73.0479},'Rawalpindi':{lat:33.5651,lng:73.0169},'Peshawar':{lat:34.0150,lng:71.5249} };
+  const base = bases[city] || { lat:24.8607, lng:67.0011 };
+  const hash = [...area].reduce((a,c) => a+c.charCodeAt(0), 0);
+  return { lat: base.lat + ((hash%40)-20)*0.004, lng: base.lng + ((hash%30)-15)*0.004 };
+}
+
+function postAnother() {
+  document.getElementById('successState').style.display = 'none';
+  document.getElementById('formState').style.display    = 'block';
+  ['s1','s2','s3'].forEach(id => { document.getElementById(id).classList.remove('done','active'); });
+  document.getElementById('s1').classList.add('active');
+  document.getElementById('s4').classList.remove('active');
+  clearErrors();
+}
+
+// ══════════════════════════ TEACHER MAP ══════════════════════════
+
+function initMap() {
+  map = L.map('map', { center:[24.8607,67.0011], zoom:12, zoomControl:true });
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution:'© OpenStreetMap contributors', maxZoom:18 }).addTo(map);
+}
+
+async function loadAndRenderRequirements() {
+  try {
+    const dbReqs = await apiGet('/requirements');
+    // Merge: convert slots string back to array, keep demo reqs for display
+    const converted = dbReqs.map(r => ({ ...r, slots: r.slots ? r.slots.split(',') : [], postedAt: r.postedAt || new Date().toISOString() }));
+    allRequirements = [...demoReqs, ...converted];
+    filteredReqs    = [...allRequirements];
+    renderMarkers();
+    updateStats();
+    document.getElementById('reqCount').textContent = `${filteredReqs.length} open requests`;
+  } catch (e) {
+    // Server not reachable — fall back to demo data silently
+    allRequirements = [...demoReqs];
+    filteredReqs    = [...allRequirements];
+    renderMarkers();
+    updateStats();
+  }
+}
+
+function renderMarkers() {
+  if (!map) return;
+  markers.forEach(m => map.removeLayer(m));
+  markers = [];
+  filteredReqs.forEach(req => {
+    if (!req.lat || !req.lng) return;
+    const color = req.urgency==='high' ? '#b83232' : req.status==='contacted' ? '#c9922a' : '#1e5f5b';
+    const emoji = req.urgency==='high' ? '🔴' : req.status==='contacted' ? '💬' : '📚';
+    const html  = `<div style="width:38px;height:38px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);background:${color};border:2.5px solid #fff;box-shadow:0 3px 10px rgba(0,0,0,0.25);display:flex;align-items:center;justify-content:center;cursor:pointer"><div style="transform:rotate(45deg);font-size:15px;line-height:1">${emoji}</div></div>`;
+    const marker = L.marker([req.lat,req.lng], { icon:L.divIcon({html,className:'',iconSize:[38,38],iconAnchor:[19,38],popupAnchor:[0,-40]}) }).addTo(map);
+    const budgetF = req.budget?.toLocaleString('en-PK');
+    const urgBadge = req.urgency==='high' ? `<span class="popup-badge pb-red">🔴 ASAP</span>` : req.urgency==='medium' ? `<span class="popup-badge pb-gold">🟡 This week</span>` : `<span class="popup-badge pb-teal">🟢 Flexible</span>`;
+    marker.bindPopup(`<div class="popup-card"><div class="popup-subject">${req.subject}</div><div class="popup-grade">${req.grade} · ${req.board||''}</div><div class="popup-row">${urgBadge}<span class="popup-badge pb-teal">PKR ${budgetF}/mo</span><span class="popup-badge pb-teal">📍 ${req.area}</span></div><button class="popup-btn" onclick="selectRequirement(${req.id})">View Full Details →</button></div>`, {maxWidth:280,minWidth:260});
+    marker.on('click', () => marker.openPopup());
+    markers.push(marker);
+  });
+}
+
+function updateStats() {
+  const open      = allRequirements.filter(r=>r.status==='open').length;
+  const urgent    = allRequirements.filter(r=>r.urgency==='high').length;
+  const contacted = allRequirements.filter(r=>r.status==='contacted').length;
+  const el1 = document.getElementById('statOpen');
+  const el2 = document.getElementById('statUrgent');
+  const el3 = document.getElementById('statContacted');
+  if (el1) el1.textContent = open;
+  if (el2) el2.textContent = urgent;
+  if (el3) el3.textContent = contacted;
+}
+
+function applyFilters() {
+  const subject = document.getElementById('fSubject').value;
+  const grade   = document.getElementById('fGrade').value;
+  const urgency = document.getElementById('fUrgency').value;
+  const search  = document.getElementById('fSearch').value.toLowerCase();
+  filteredReqs  = allRequirements.filter(r => {
+    if (subject && !r.subject?.includes(subject)) return false;
+    if (grade   && r.grade !== grade)             return false;
+    if (urgency && r.urgency !== urgency)          return false;
+    if (search  && !`${r.subject} ${r.area} ${r.city} ${r.grade} ${r.description}`.toLowerCase().includes(search)) return false;
+    return true;
+  });
+  renderMarkers();
+  document.getElementById('reqCount').textContent = `${filteredReqs.length} open requests`;
+}
+
+function selectRequirement(id) {
+  const req = allRequirements.find(r => r.id === id);
+  if (!req) return;
+  selectedReq = req;
+  map.flyTo([req.lat,req.lng], 14, {duration:0.8});
+  document.getElementById('pSubject').textContent  = req.subject;
+  document.getElementById('pGrade').textContent    = `${req.grade} · ${req.board||'Board not specified'}`;
+  document.getElementById('pLocation').textContent = `${req.area}, ${req.city}`;
+  document.getElementById('pBudget').textContent   = `PKR ${req.budget?.toLocaleString('en-PK')}/month`;
+  document.getElementById('pSessions').textContent = req.sessions || 'Not specified';
+  document.getElementById('pDuration').textContent = req.duration || 'Not specified';
+  document.getElementById('pName').textContent     = req.contactName;
+  document.getElementById('pPhone').textContent    = req.contactPhone;
+  document.getElementById('pPosted').textContent   = timeAgo(req.postedAt);
+  const gMap = {any:'No preference',male:'Male teacher only',female:'Female teacher only'};
+  document.getElementById('pGender').textContent   = gMap[req.gender] || 'No preference';
+  const urgEl = document.getElementById('pUrgency');
+  if (req.urgency==='high')   { urgEl.textContent='🔴 Needs teacher ASAP'; urgEl.className='urgency-pill urg-high'; }
+  else if (req.urgency==='medium') { urgEl.textContent='🟡 Within this week'; urgEl.className='urgency-pill urg-medium'; }
+  else { urgEl.textContent='🟢 Not urgent'; urgEl.className='urgency-pill urg-low'; }
+  const slotsEl = document.getElementById('pSlots');
+  const slots = Array.isArray(req.slots) ? req.slots : (req.slots||'').split(',');
+  slotsEl.innerHTML = slots.filter(Boolean).map(s=>`<span class="slot-tag">${s}</span>`).join('') || '<span style="font-size:12px;color:var(--muted)">Not specified</span>';
+  if (req.description) { document.getElementById('pDescription').textContent=req.description; document.getElementById('descSection').style.display='block'; }
+  else { document.getElementById('descSection').style.display='none'; }
+  document.getElementById('emptyPanel').style.display   = 'none';
+  document.getElementById('panelContent').style.display = 'flex';
+  document.getElementById('sidePanel').classList.add('open');
+  document.getElementById('map').style.marginRight = '380px';
+  setTimeout(() => map.invalidateSize(), 350);
+}
+
+function closePanel() {
+  document.getElementById('sidePanel').classList.remove('open');
+  document.getElementById('map').style.marginRight = '0';
+  setTimeout(() => map.invalidateSize(), 350);
+}
+
+function openMessageModal() {
+  if (!selectedReq) return;
+  document.getElementById('msgTo').textContent      = selectedReq.contactName;
+  document.getElementById('msgSubject').textContent = selectedReq.subject + ' · ' + selectedReq.area;
+  document.getElementById('msgText').value          = '';
+  document.getElementById('msgModal').classList.add('open');
+}
+
+function closeModal() { document.getElementById('msgModal').classList.remove('open'); }
+
+const templates = {
+  intro: () => `Assalam o Alaikum!\n\nI came across your tuition requirement for ${selectedReq?.subject} on TutorLink. I am an experienced teacher and believe I can help you.\n\nPlease let me know a convenient time to call.\n\nRegards`,
+  visit: () => `Assalam o Alaikum!\n\nI am very interested in your requirement. I would like to visit you for a brief meeting.\n\nPlease let me know which day and time works best.`,
+  trial: () => `Assalam o Alaikum!\n\nI would like to offer you a FREE trial class to evaluate my teaching style. No charge for the first session.\n\nPlease reply with your preferred time.`,
+  avail: () => `Assalam o Alaikum!\n\nThank you for posting. I am available evenings and weekends and my fee is PKR ${selectedReq?.budget?.toLocaleString('en-PK')}/month.\n\nPlease confirm if this works.`
+};
+
+function useTemplate(key) { document.getElementById('msgText').value = templates[key](); }
+
+async function sendMessage() {
+  const text = document.getElementById('msgText').value.trim();
+  if (!text) { showToast('Please write a message first.', 'error'); return; }
+  const btn = document.getElementById('sendBtn');
+  btn.classList.add('loading'); btn.textContent = 'Sending...';
+
+  try {
+    const res = await apiPost('/messages', {
+      fromUserId: currentSession?.id,
+      fromName:   currentSession?.fullName,
+      toUserId:   selectedReq?.studentId || null,
+      toName:     selectedReq?.contactName,
+      requirementId: selectedReq?.id,
+      subject:    selectedReq?.subject,
+      message:    text
+    });
+    btn.classList.remove('loading'); btn.textContent = 'Send Message ✉️';
+
+    if (!res.ok) { showToast('Failed to send message.', 'error'); return; }
+
+    // Update status to contacted
+    await apiPatch(`/requirements/${selectedReq.id}/status`, { status: 'contacted' });
+    const idx = allRequirements.findIndex(r => r.id === selectedReq.id);
+    if (idx !== -1) allRequirements[idx].status = 'contacted';
+    renderMarkers();
+    closeModal();
+    showToast(`Message sent to ${selectedReq.contactName}!`);
+  } catch (e) {
+    btn.classList.remove('loading'); btn.textContent = 'Send Message ✉️';
+    showToast('Server error. Is Spring Boot running?', 'error');
+  }
+}
+
+// ══════════════════════════ ADMIN PANEL ══════════════════════════
+
+let adminUserFilter = 'all';
+let adminReqFilter  = 'all';
+
+function goToAdmin() {
+  goToScreen('adminPage');
+  loadAdminData();
+}
+
+async function loadAdminData() {
+  try {
+    const [users, reqs, messages] = await Promise.all([
+      apiGet('/users'),
+      apiGet('/requirements'),
+      apiGet('/messages')
+    ]);
+    document.getElementById('navUserCount').textContent = users.length;
+    document.getElementById('navReqCount').textContent  = reqs.length;
+    document.getElementById('navMsgCount').textContent  = messages.length;
+    renderStatCards(users, reqs, messages);
+    renderCharts(reqs);
+    renderRecentActivity(users, reqs, messages);
+    renderUsersTable(users);
+    renderReqsTable(reqs);
+    renderMsgsTable(messages);
+    renderActivityLog(users, reqs, messages);
+  } catch(e) {
+    showToast('Could not load admin data. Is Spring Boot running?', 'error');
+  }
+}
+
+function renderStatCards(users, reqs, messages) {
+  const students  = users.filter(u=>u.role==='student').length;
+  const teachers  = users.filter(u=>u.role==='teacher').length;
+  const open      = reqs.filter(r=>r.status==='open').length;
+  const urgent    = reqs.filter(r=>r.urgency==='high').length;
+  document.getElementById('statGrid').innerHTML = `
+    <div class="stat-card highlight"><div class="s-label">Total Users</div><div class="s-value">${users.length}</div><div class="s-sub">${students} students · ${teachers} teachers</div></div>
+    <div class="stat-card"><div class="s-label">Requirements</div><div class="s-value">${reqs.length}</div><div class="s-sub">${open} open · ${urgent} urgent</div></div>
+    <div class="stat-card"><div class="s-label">Messages Sent</div><div class="s-value">${messages.length}</div><div class="s-sub">Between teachers & students</div></div>
+    <div class="stat-card"><div class="s-label">Contacted</div><div class="s-value">${reqs.filter(r=>r.status==='contacted').length}</div><div class="s-sub">Teacher reached out</div></div>`;
+}
+
+function renderCharts(reqs) {
+  const cities = {}; reqs.forEach(r => { cities[r.city]=(cities[r.city]||0)+1; });
+  const sc = Object.entries(cities).sort((a,b)=>b[1]-a[1]).slice(0,5);
+  const maxC = sc[0]?.[1]||1;
+  document.getElementById('cityChart').innerHTML = sc.map(([city,count]) => `
+    <div style="margin-bottom:10px"><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px"><span style="font-weight:500">${city}</span><span style="color:var(--muted)">${count}</span></div>
+    <div style="background:var(--cream);border-radius:4px;height:7px;overflow:hidden"><div style="background:var(--teal);height:100%;border-radius:4px;width:${(count/maxC)*100}%"></div></div></div>`).join('') || '<p style="font-size:13px;color:var(--muted)">No data yet.</p>';
+  const subjects = {}; reqs.forEach(r => { subjects[r.subject]=(subjects[r.subject]||0)+1; });
+  const ss = Object.entries(subjects).sort((a,b)=>b[1]-a[1]).slice(0,5);
+  const maxS = ss[0]?.[1]||1;
+  document.getElementById('subjectChart').innerHTML = ss.map(([sub,count]) => `
+    <div style="margin-bottom:10px"><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px"><span style="font-weight:500">${sub}</span><span style="color:var(--muted)">${count}</span></div>
+    <div style="background:var(--cream);border-radius:4px;height:7px;overflow:hidden"><div style="background:var(--gold);height:100%;border-radius:4px;width:${(count/maxS)*100}%"></div></div></div>`).join('') || '<p style="font-size:13px;color:var(--muted)">No data yet.</p>';
+}
+
+function renderRecentActivity(users, reqs, messages) {
+  const events = [
+    ...users.map(u => ({ time: u.createdAt||new Date().toISOString(), text:`New ${u.role} registered: <strong>${u.fullName}</strong>`, color: u.role==='teacher'?'var(--gold)':'var(--teal)' })),
+    ...messages.map(m => ({ time: m.sentAt||new Date().toISOString(), text:`Message sent by <strong>${m.fromName}</strong> to <strong>${m.toName}</strong>`, color:'var(--error)' }))
+  ].sort((a,b)=>new Date(b.time)-new Date(a.time)).slice(0,10);
+  document.getElementById('recentActivity').innerHTML = events.length
+    ? events.map(e=>`<div class="log-item"><div class="log-dot" style="background:${e.color}"></div><div class="log-text">${e.text}</div><div class="log-time">${timeAgo(e.time)}</div></div>`).join('')
+    : '<p style="padding:20px 0;font-size:13px;color:var(--muted)">No activity yet.</p>';
+}
+
+function renderActivityLog(users, reqs, messages) {
+  const events = [
+    ...users.map(u => ({ time:u.createdAt||new Date().toISOString(), text:`👤 ${u.role} <strong>${u.fullName}</strong> (${u.email}) registered.`, color:u.role==='teacher'?'var(--gold)':'var(--teal)' })),
+    ...messages.map(m => ({ time:m.sentAt||new Date().toISOString(), text:`💬 <strong>${m.fromName}</strong> messaged <strong>${m.toName}</strong> about ${m.subject}`, color:'var(--error)' }))
+  ].sort((a,b)=>new Date(b.time)-new Date(a.time));
+  document.getElementById('activityLog').innerHTML = events.length
+    ? events.map(e=>`<div class="log-item"><div class="log-dot" style="background:${e.color}"></div><div class="log-text">${e.text}</div><div class="log-time">${timeAgo(e.time)}</div></div>`).join('')
+    : '<p style="padding:20px 0;font-size:13px;color:var(--muted)">No activity logged yet.</p>';
+}
+
+function renderUsersTable(users) {
+  if (!users) { apiGet('/users').then(u => renderUsersTable(u)).catch(()=>{}); return; }
+  const search   = (document.getElementById('userSearch')?.value||'').toLowerCase();
+  const filtered = users.filter(u => {
+    if (adminUserFilter!=='all' && u.role!==adminUserFilter) return false;
+    if (search && !`${u.fullName} ${u.email} ${u.city}`.toLowerCase().includes(search)) return false;
+    return true;
+  });
+  const tbody = document.getElementById('usersTableBody');
+  const empty = document.getElementById('usersEmpty');
+  if (!filtered.length) { tbody.innerHTML=''; empty.style.display='block'; return; }
+  empty.style.display='none';
+  tbody.innerHTML = filtered.map(u=>`<tr>
+    <td><strong>${u.fullName}</strong></td>
+    <td style="color:var(--muted)">${u.email}</td>
+    <td>${u.city||'—'}</td>
+    <td><span class="badge ${u.role==='teacher'?'badge-teacher':'badge-student'}">${u.role}</span></td>
+    <td><button class="action-btn del" onclick="deleteUser(${u.id})">Delete</button></td>
+  </tr>`).join('');
+}
+
+function renderReqsTable(reqs) {
+  if (!reqs) { apiGet('/requirements').then(r=>renderReqsTable(r)).catch(()=>{}); return; }
+  const combined = [...demoReqs, ...reqs];
+  const search   = (document.getElementById('reqSearch')?.value||'').toLowerCase();
+  const filtered = combined.filter(r => {
+    if (adminReqFilter==='open' && r.status!=='open') return false;
+    if (adminReqFilter==='contacted' && r.status!=='contacted') return false;
+    if (adminReqFilter==='high' && r.urgency!=='high') return false;
+    if (search && !`${r.subject} ${r.area} ${r.city} ${r.contactName}`.toLowerCase().includes(search)) return false;
+    return true;
+  });
+  const tbody = document.getElementById('reqsTableBody');
+  const empty = document.getElementById('reqsEmpty');
+  if (!filtered.length) { tbody.innerHTML=''; empty.style.display='block'; return; }
+  empty.style.display='none';
+  tbody.innerHTML = filtered.map(r=>`<tr>
+    <td><strong>${r.subject}</strong><br><span style="font-size:11px;color:var(--muted)">${r.grade}</span></td>
+    <td>${r.contactName}<br><span style="font-size:11px;color:var(--muted)">${r.contactPhone}</span></td>
+    <td>${r.area}, ${r.city}</td>
+    <td>PKR ${r.budget?.toLocaleString('en-PK')}/mo</td>
+    <td><span class="badge ${r.urgency==='high'?'badge-urgent':'badge-student'}">${r.urgency==='high'?'🔴 ASAP':r.urgency==='medium'?'🟡 Week':'🟢 Flex'}</span></td>
+    <td><span class="badge ${r.status==='open'?'badge-open':'badge-contacted'}">${r.status}</span></td>
+    <td style="color:var(--muted)">${timeAgo(r.postedAt)}</td>
+    <td><button class="action-btn del" onclick="deleteReq(${r.id})">Delete</button></td>
+  </tr>`).join('');
+}
+
+function renderMsgsTable(messages) {
+  if (!messages) { apiGet('/messages').then(m=>renderMsgsTable(m)).catch(()=>{}); return; }
+  const tbody = document.getElementById('msgsTableBody');
+  const empty = document.getElementById('msgsEmpty');
+  if (!messages.length) { tbody.innerHTML=''; empty.style.display='block'; return; }
+  empty.style.display='none';
+  tbody.innerHTML = messages.map(m=>`<tr>
+    <td><strong>${m.fromName}</strong></td>
+    <td>${m.toName}</td>
+    <td style="color:var(--teal)">${m.subject}</td>
+    <td style="color:var(--muted);max-width:180px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">${m.message?.substring(0,70)}…</td>
+    <td style="color:var(--muted)">${timeAgo(m.sentAt)}</td>
+    <td><button class="action-btn del" onclick="deleteMsg(${m.id})">Delete</button></td>
+  </tr>`).join('');
+}
+
+function adminNav(section, el) {
+  document.querySelectorAll('.nav-item').forEach(i=>i.classList.remove('active'));
+  el.classList.add('active');
+  document.querySelectorAll('.admin-section').forEach(s=>s.classList.remove('active'));
+  document.getElementById('sec-'+section).classList.add('active');
+}
+
+function filterUsers(type, el) {
+  adminUserFilter = type;
+  el.closest('.admin-tab-bar').querySelectorAll('.admin-tab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  apiGet('/users').then(u=>renderUsersTable(u)).catch(()=>{});
+}
+
+function filterReqs(type, el) {
+  adminReqFilter = type;
+  el.closest('.admin-tab-bar').querySelectorAll('.admin-tab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  apiGet('/requirements').then(r=>renderReqsTable(r)).catch(()=>{});
+}
+
+async function deleteUser(id) {
+  if (!confirm('Delete this user?')) return;
+  await apiDelete(`/users/${id}`);
+  loadAdminData();
+  showToast('User deleted.');
+}
+
+async function deleteReq(id) {
+  if (!confirm('Delete this requirement?')) return;
+  await apiDelete(`/requirements/${id}`);
+  allRequirements = allRequirements.filter(r=>r.id!==id);
+  loadAdminData();
+  showToast('Requirement deleted.');
+}
+
+async function deleteMsg(id) {
+  if (!confirm('Delete this message?')) return;
+  await apiDelete(`/messages/${id}`);
+  loadAdminData();
+  showToast('Message deleted.');
+}
+
+async function clearAllReqs()     { if (!confirm('Clear ALL requirements?')) return; const r=await apiGet('/requirements'); await Promise.all(r.map(x=>apiDelete(`/requirements/${x.id}`))); allRequirements=[...demoReqs]; loadAdminData(); showToast('Cleared.'); }
+async function clearAllMessages() { if (!confirm('Clear ALL messages?'))     return; const m=await apiGet('/messages');      await Promise.all(m.map(x=>apiDelete(`/messages/${x.id}`))); loadAdminData(); showToast('Cleared.'); }
+async function clearAllUsers()    { if (!confirm('Clear ALL users?'))         return; const u=await apiGet('/users');          await Promise.all(u.map(x=>apiDelete(`/users/${x.id}`))); localStorage.removeItem('tutorlink_session'); loadAdminData(); showToast('Cleared.'); }
+
+// ══════════════════════════ STUDENT INBOX ══════════════════════════
+
+async function showInbox() {
+  goToScreen('inboxPage');
+  document.getElementById('inboxAvatar').textContent = (currentSession?.fullName||'S')[0].toUpperCase();
+  const list = document.getElementById('inboxList');
+  list.innerHTML = '<p style="color:var(--muted);padding:20px;font-size:13px">Loading...</p>';
+  try {
+    const messages = await apiGet(`/messages/inbox/${currentSession?.id}`);
+    if (!messages.length) {
+      list.innerHTML=`<div style="text-align:center;padding:60px 20px;color:var(--muted)"><div style="font-size:48px;margin-bottom:16px">📭</div><h3 style="font-size:16px;font-weight:600;color:var(--ink);margin-bottom:8px">No messages yet</h3><p style="font-size:13px">When a teacher reaches out, messages appear here.</p></div>`;
+      return;
+    }
+    list.innerHTML = messages.reverse().map(m=>`
+      <div style="background:#fff;border:1px solid var(--border);border-radius:var(--radius);padding:20px 24px;margin-bottom:14px">
+        <div style="display:flex;justify-content:space-between;margin-bottom:8px">
+          <div>
+            <span style="font-size:14px;font-weight:700;color:var(--ink)">${m.fromName}</span>
+            <span style="font-size:11px;background:var(--gold-pale);color:#8a6010;padding:2px 8px;border-radius:10px;margin-left:8px;font-weight:600">Teacher</span>
+            <div style="font-size:12px;color:var(--teal);margin-top:3px">Re: ${m.subject}</div>
+          </div>
+          <div style="font-size:11px;color:var(--muted)">${timeAgo(m.sentAt)}</div>
+        </div>
+        <div style="font-size:13px;color:var(--ink);line-height:1.7;background:var(--cream);border-radius:8px;padding:12px 14px;border:1px solid var(--border);margin-bottom:14px;white-space:pre-wrap">${m.message}</div>
+        <div style="display:flex;gap:8px">
+          <button style="padding:8px 16px;border-radius:8px;border:none;background:var(--teal-pale);color:var(--teal);font-family:'DM Sans',sans-serif;font-size:12px;font-weight:600;cursor:pointer" onclick="scheduleVisit('${m.fromName}')">📅 Schedule Visit</button>
+          <button style="padding:8px 16px;border-radius:8px;border:none;background:#e8f5e9;color:#2e7d32;font-family:'DM Sans',sans-serif;font-size:12px;font-weight:600;cursor:pointer" onclick="hireTeacher('${m.fromName}')">✅ Hire This Teacher</button>
+        </div>
+      </div>`).join('');
+  } catch(e) { list.innerHTML='<p style="color:var(--error);padding:20px;font-size:13px">Could not load messages. Is Spring Boot running?</p>'; }
+}
+
+function scheduleVisit(name) { showToast(`Visit scheduled with ${name}!`); }
+function hireTeacher(name)   { showToast(`${name} marked as hired! 🎉`); }
+
+// ══════════════════════════ MY REQUIREMENTS ══════════════════════════
+
+async function showMyReqs() {
+  goToScreen('myReqsPage');
+  const list = document.getElementById('myReqList');
+  list.innerHTML = '<p style="color:var(--muted);padding:20px;font-size:13px">Loading...</p>';
+  try {
+    const mine = await apiGet(`/requirements/student/${currentSession?.id}`);
+    if (!mine.length) {
+      list.innerHTML=`<div style="text-align:center;padding:60px 20px;color:var(--muted)"><div style="font-size:48px;margin-bottom:16px">📋</div><h3 style="font-size:16px;font-weight:600;color:var(--ink);margin-bottom:8px">No requirements posted yet</h3><p style="font-size:13px;margin-bottom:24px">Post your first tuition requirement.</p><button style="padding:12px 28px;background:var(--teal);color:#fff;border:none;border-radius:10px;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:600;cursor:pointer" onclick="goToScreen('postReqPage')">Post a Requirement</button></div>`;
+      return;
+    }
+    list.innerHTML = mine.reverse().map(r=>`
+      <div style="background:#fff;border:1px solid var(--border);border-radius:var(--radius);padding:20px 24px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:flex-start;gap:16px">
+        <div style="flex:1">
+          <div style="font-size:16px;font-weight:700;margin-bottom:4px">${r.subject} — ${r.grade}</div>
+          <div style="font-size:13px;color:var(--muted);margin-bottom:10px">${r.description||'No description.'}</div>
+          <div style="display:flex;flex-wrap:wrap;gap:6px">
+            <span style="background:var(--teal-pale);color:var(--teal);font-size:11px;font-weight:600;padding:3px 10px;border-radius:12px">📍 ${r.area}, ${r.city}</span>
+            <span style="background:var(--gold-pale);color:#8a6010;font-size:11px;font-weight:600;padding:3px 10px;border-radius:12px">💰 PKR ${r.budget?.toLocaleString('en-PK')}/mo</span>
+            <span style="background:${r.urgency==='high'?'#fdf0f0':'var(--teal-pale)'};color:${r.urgency==='high'?'var(--error)':'var(--teal)'};font-size:11px;font-weight:600;padding:3px 10px;border-radius:12px">${r.urgency==='high'?'🔴 ASAP':'🟢 Flexible'}</span>
+          </div>
+        </div>
+        <div style="text-align:right;flex-shrink:0">
+          <div style="font-size:12px;font-weight:700;color:#4caf50">● Live</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:4px">${timeAgo(r.postedAt)}</div>
+          <button style="margin-top:10px;padding:5px 10px;border-radius:6px;background:#fdf0f0;color:var(--error);border:none;font-size:11px;font-weight:600;cursor:pointer" onclick="deleteMyReq(${r.id})">Delete</button>
+        </div>
+      </div>`).join('');
+  } catch(e) { list.innerHTML='<p style="color:var(--error);padding:20px;font-size:13px">Could not load. Is Spring Boot running?</p>'; }
+}
+
+async function deleteMyReq(id) {
+  if (!confirm('Delete this requirement?')) return;
+  await apiDelete(`/requirements/${id}`);
+  allRequirements = allRequirements.filter(r=>r.id!==id);
+  showMyReqs(); showToast('Deleted.');
+}
+
+// ══════════════════════════ TEACHER DASHBOARD ══════════════════════════
+
+async function showTeacherDash() {
+  const u = currentSession;
+  document.getElementById('tDashName').textContent   = u?.fullName || 'Teacher';
+  document.getElementById('tDashAvatar').textContent = (u?.fullName||'T')[0].toUpperCase();
+  try {
+    const [messages, reqs] = await Promise.all([
+      apiGet(`/messages/sent/${u?.id}`),
+      apiGet('/requirements')
+    ]);
+    document.getElementById('tStatMsgs').textContent      = messages.length;
+    document.getElementById('tStatReqs').textContent      = reqs.filter(r=>r.status==='open').length;
+    document.getElementById('tStatContacted').textContent = reqs.filter(r=>r.status==='contacted').length;
+    const sentList = document.getElementById('tSentMsgs');
+    if (!messages.length) {
+      sentList.innerHTML=`<div style="text-align:center;padding:40px;color:var(--muted)"><div style="font-size:40px;margin-bottom:12px">💬</div><p style="font-size:13px">No messages sent yet. Browse the map and reach out.</p><button style="margin-top:16px;padding:11px 24px;background:var(--teal);color:#fff;border:none;border-radius:10px;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;cursor:pointer" onclick="goToScreen('teacherMapPage');setTimeout(()=>{loadAndRenderRequirements();},100)">Open Map 🗺️</button></div>`;
+    } else {
+      sentList.innerHTML = messages.reverse().map(m=>`
+        <div style="background:var(--paper);border:1px solid var(--border);border-radius:10px;padding:16px;margin-bottom:10px">
+          <div style="display:flex;justify-content:space-between;margin-bottom:6px">
+            <div style="font-size:13px;font-weight:700;color:var(--ink)">To: ${m.toName} <span style="font-size:11px;font-weight:400;color:var(--teal)">· ${m.subject}</span></div>
+            <div style="font-size:11px;color:var(--muted)">${timeAgo(m.sentAt)}</div>
+          </div>
+          <div style="font-size:12px;color:var(--muted);line-height:1.5;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical">${m.message}</div>
+        </div>`).join('');
+    }
+  } catch(e) {
+    document.getElementById('tSentMsgs').innerHTML='<p style="color:var(--error);padding:20px;font-size:13px">Could not load. Is Spring Boot running?</p>';
+  }
+}
+
+// ══════════════════════════ PROFILE ══════════════════════════
+
+function showProfile() {
+  goToScreen('profilePage');
+  const u = currentSession; if (!u) return;
+  document.getElementById('profAvatar').textContent   = (u.fullName||'U')[0].toUpperCase();
+  document.getElementById('profAvatarLg').textContent = (u.fullName||'U')[0].toUpperCase();
+  document.getElementById('profName').textContent     = u.fullName||'';
+  document.getElementById('profNameLg').textContent   = u.fullName||'';
+  document.getElementById('profRoleLg').textContent   = u.role?.charAt(0)?.toUpperCase()+u.role?.slice(1);
+  document.getElementById('profEmail').value    = u.email||'';
+  document.getElementById('profCity').value     = u.city||'';
+  document.getElementById('profSubjects').value = u.subjects||'';
+  document.getElementById('profQual').value     = u.qualification||'';
+  document.getElementById('profBio').value      = u.bio||'';
+  document.getElementById('profTeacherSection').style.display = u.role==='teacher'?'block':'none';
+}
+
+function saveProfile() {
+  showToast('Profile saved!');
+  // Future: apiPatch(`/users/${currentSession.id}`, { city, subjects, etc })
+}
+
+// ══════════════════════════ STUDENT DASHBOARD ══════════════════════════
+
+async function showStudentDash() {
+  goToScreen('studentDash');
+  document.getElementById('stdAvatar').textContent = (currentSession?.fullName||'S')[0].toUpperCase();
+  document.getElementById('stdName').textContent   = currentSession?.fullName||'';
+  const hour  = new Date().getHours();
+  const greet = hour<12?'Good morning':hour<17?'Good afternoon':'Good evening';
+  document.getElementById('stdWelcome').textContent = `${greet}, ${currentSession?.fullName?.split(' ')[0]}! 👋`;
+  let myMsgs = 0, myReqs = 0;
+  try {
+    const [msgs, reqs] = await Promise.all([
+      apiGet(`/messages/inbox/${currentSession?.id}`),
+      apiGet(`/requirements/student/${currentSession?.id}`)
+    ]);
+    myMsgs = msgs.length;
+    myReqs = reqs.length;
+  } catch(e) {}
+  document.getElementById('stdCards').innerHTML = [
+    { icon:'📋', title:'Post a Requirement', desc:'Share your subject, area, timing and budget.', badge:'', action:"goToScreen('postReqPage')" },
+    { icon:'📂', title:'My Requirements', desc:`${myReqs} requirement${myReqs!==1?'s':''} posted.`, badge:myReqs||'', action:'showMyReqs()' },
+    { icon:'💬', title:'My Inbox', desc:`${myMsgs} message${myMsgs!==1?'s':''} from teachers.`, badge:myMsgs||'', action:'showInbox()' },
+    { icon:'👤', title:'My Profile', desc:'Update your contact info.', badge:'', action:'showProfile()' },
+  ].map(c=>`<div class="dash-card" onclick="${c.action}" style="position:relative">
+    ${c.badge?`<div style="position:absolute;top:14px;right:14px;background:var(--error);color:#fff;font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px">${c.badge}</div>`:''}
+    <div class="dash-card-icon">${c.icon}</div><h3>${c.title}</h3><p>${c.desc}</p>
+  </div>`).join('');
+}
+
+// ══════════════════════════ UTILS ══════════════════════════
+
+function timeAgo(iso) {
+  if (!iso) return '—';
+  const diff = Date.now() - new Date(iso).getTime();
+  const m = Math.floor(diff/60000), h = Math.floor(diff/3600000), d = Math.floor(diff/86400000);
+  if (m<1) return 'Just now';
+  if (m<60) return `${m} min ago`;
+  if (h<24) return `${h} hour${h>1?'s':''} ago`;
+  return `${d} day${d>1?'s':''} ago`;
+}
+
+function showToast(msg, type='success') {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.className=`toast ${type} show`;
+  setTimeout(()=>t.classList.remove('show'), 3500);
+}
+
+// ══════════════════════════ AUTO-LOGIN ══════════════════════════
+
+if (currentSession) {
+  setTimeout(() => {
+    if (currentSession.role==='admin')   goToAdmin();
+    else if (currentSession.role==='teacher') { goToScreen('teacherDashPage'); showTeacherDash(); }
+    else showStudentDash();
+  }, 100);
+}
+</script>
+
+<!-- STUDENT INBOX -->
+<div class="screen" id="inboxPage" style="flex-direction:column;overflow:hidden">
+  <nav class="topbar">
+    <div class="topbar-left"><div class="logo-sm" onclick="showStudentDash()">Tutor<span>Link</span></div></div>
+    <div class="topbar-right">
+      <div class="avatar" id="inboxAvatar">S</div>
+      <span class="uname">Inbox</span>
+      <button class="btn-sm" onclick="showStudentDash()">← Dashboard</button>
+    </div>
+  </nav>
+  <div style="max-width:720px;margin:0 auto;width:100%;padding:32px 24px 80px;flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch">
+    <h1 style="font-family:'DM Serif Display',serif;font-size:28px;margin-bottom:6px">My Inbox</h1>
+    <p style="font-size:14px;color:var(--muted);margin-bottom:28px">Messages from teachers who want to tutor you.</p>
+    <div id="inboxList"></div>
+  </div>
+</div>
+
+<!-- MY REQUIREMENTS -->
+<div class="screen" id="myReqsPage" style="flex-direction:column;overflow:hidden">
+  <nav class="topbar">
+    <div class="topbar-left"><div class="logo-sm" onclick="showStudentDash()">Tutor<span>Link</span></div></div>
+    <div class="topbar-right">
+      <div class="avatar">S</div>
+      <span class="uname">My Requirements</span>
+      <button class="btn-sm" onclick="showStudentDash()">← Dashboard</button>
+    </div>
+  </nav>
+  <div style="max-width:800px;margin:0 auto;width:100%;padding:32px 24px 80px;flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:28px">
+      <div>
+        <h1 style="font-family:'DM Serif Display',serif;font-size:28px;margin-bottom:4px">My Requirements</h1>
+        <p style="font-size:14px;color:var(--muted)">All your posted tuition requests.</p>
+      </div>
+      <button style="padding:11px 22px;background:var(--teal);color:#fff;border:none;border-radius:10px;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;cursor:pointer" onclick="goToScreen('postReqPage')">+ Post New</button>
+    </div>
+    <div id="myReqList"></div>
+  </div>
+</div>
+
+<!-- TEACHER DASHBOARD -->
+<div class="screen" id="teacherDashPage" style="flex-direction:column;overflow:hidden">
+  <nav class="topbar">
+    <div class="topbar-left"><div class="logo-sm" onclick="goToDash()">Tutor<span>Link</span></div></div>
+    <div class="topbar-right">
+      <div class="avatar" id="tDashAvatar">T</div>
+      <div><div class="uname" id="tDashName">Teacher</div><div class="urole">Teacher</div></div>
+      <button class="btn-sm" onclick="logout()">← Logout</button>
+    </div>
+  </nav>
+  <div style="max-width:900px;margin:0 auto;width:100%;padding:32px 24px 80px;flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch">
+    <div class="welcome-banner" style="margin-bottom:28px">
+      <h2 style="font-family:'DM Serif Display',serif;font-size:24px;margin-bottom:6px;position:relative;z-index:1">Welcome back! 👋</h2>
+      <p style="font-size:14px;color:rgba(255,255,255,0.65);position:relative;z-index:1">Find students nearby and grow your tuition business.</p>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:28px">
+      <div style="background:#fff;border:1px solid var(--border);border-radius:var(--radius);padding:20px;text-align:center">
+        <div style="font-family:'DM Serif Display',serif;font-size:28px;color:var(--teal)" id="tStatMsgs">0</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:4px">Messages Sent</div>
+      </div>
+      <div style="background:#fff;border:1px solid var(--border);border-radius:var(--radius);padding:20px;text-align:center">
+        <div style="font-family:'DM Serif Display',serif;font-size:28px;color:var(--gold)" id="tStatReqs">0</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:4px">Open Requests</div>
+      </div>
+      <div style="background:#fff;border:1px solid var(--border);border-radius:var(--radius);padding:20px;text-align:center">
+        <div style="font-family:'DM Serif Display',serif;font-size:28px;color:var(--teal-light)" id="tStatContacted">0</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:4px">Contacted</div>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:28px">
+      <div class="dash-card" onclick="goToScreen('teacherMapPage');setTimeout(()=>{renderMarkers();updateStats();},100)">
+        <div class="dash-card-icon">🗺️</div>
+        <h3>Browse Student Map</h3>
+        <p>See all open student requirements on the interactive map.</p>
+      </div>
+      <div class="dash-card" onclick="showProfile()">
+        <div class="dash-card-icon">👤</div>
+        <h3>My Profile</h3>
+        <p>Update your subjects, qualification and bio.</p>
+      </div>
+    </div>
+    <div style="background:#fff;border:1px solid var(--border);border-radius:var(--radius);padding:24px">
+      <h3 style="font-size:16px;font-weight:600;margin-bottom:16px">💬 My Sent Messages</h3>
+      <div id="tSentMsgs"></div>
+    </div>
+  </div>
+</div>
+
+<!-- PROFILE PAGE -->
+<div class="screen" id="profilePage" style="flex-direction:column;overflow:hidden">
+  <nav class="topbar">
+    <div class="topbar-left"><div class="logo-sm" onclick="goToDash()">Tutor<span>Link</span></div></div>
+    <div class="topbar-right">
+      <div class="avatar" id="profAvatar">U</div>
+      <span class="uname" id="profName">User</span>
+      <button class="btn-sm" onclick="goToDash()">← Dashboard</button>
+    </div>
+  </nav>
+  <div style="max-width:680px;margin:0 auto;width:100%;padding:32px 24px 80px;flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch">
+    <div style="text-align:center;margin-bottom:32px">
+      <div style="width:80px;height:80px;border-radius:50%;background:var(--teal);display:flex;align-items:center;justify-content:center;font-size:32px;font-weight:700;color:#fff;margin:0 auto 12px" id="profAvatarLg">U</div>
+      <div style="font-family:'DM Serif Display',serif;font-size:22px" id="profNameLg">User</div>
+      <div style="font-size:13px;color:var(--muted);margin-top:4px" id="profRoleLg">Student</div>
+    </div>
+    <div style="background:#fff;border:1px solid var(--border);border-radius:var(--radius);padding:28px;margin-bottom:16px">
+      <h3 style="font-size:15px;font-weight:600;margin-bottom:20px">👤 Personal Info</h3>
+      <div class="row2">
+        <div class="field"><label>Email</label><input type="email" id="profEmail" readonly style="background:var(--cream)"></div>
+        <div class="field"><label>Phone</label><input type="tel" id="profPhone" placeholder="03XX-XXXXXXX"></div>
+      </div>
+      <div class="field"><label>City / Area</label><input type="text" id="profCity" placeholder="e.g. Karachi, DHA Phase 5"></div>
+    </div>
+    <div style="background:#fff;border:1px solid var(--border);border-radius:var(--radius);padding:28px;margin-bottom:20px" id="profTeacherSection">
+      <h3 style="font-size:15px;font-weight:600;margin-bottom:20px">📚 Teaching Info</h3>
+      <div class="field"><label>Subjects you teach</label><input type="text" id="profSubjects" placeholder="e.g. Maths, Physics, Chemistry"></div>
+      <div class="field"><label>Qualification</label><input type="text" id="profQual" placeholder="e.g. BS Computer Science"></div>
+      <div class="field"><label>Bio</label><textarea id="profBio" placeholder="Tell students about your experience..."></textarea></div>
+    </div>
+    <button style="width:100%;padding:14px;background:var(--teal);color:#fff;border:none;border-radius:12px;font-family:'DM Sans',sans-serif;font-size:15px;font-weight:600;cursor:pointer" onclick="saveProfile()">💾 Save Profile</button>
+  </div>
+</div>
+
+</body>
+</html>
