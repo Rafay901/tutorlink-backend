@@ -11,3 +11,4 @@ public interface MessageRepository extends JpaRepository<Message, Long> {
     List<Message> findByFromUserId(Long fromUserId);
     List<Message> findByRequirementId(Long requirementId);
 }
+ 
